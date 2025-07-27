@@ -31,6 +31,7 @@ install(PROGRAMS
   scripts/excel_report_generator.py
   scripts/excel_report_enhanced.py
   scripts/excel_report_with_graphs.py
+  scripts/graph_generator.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

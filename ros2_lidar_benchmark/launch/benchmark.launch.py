@@ -124,7 +124,8 @@ def generate_launch_description():
         name='benchmark_analyzer',
         parameters=[{
             'output_file': '/tmp/lidar_benchmark_report.xlsx',
-            'analysis_duration': LaunchConfiguration('analysis_duration')
+            'analysis_duration': LaunchConfiguration('analysis_duration'),
+            'config_file': LaunchConfiguration('config_file')
         }],
         output='screen',
         on_exit=Shutdown()  # Shutdown entire launch when analyzer exits

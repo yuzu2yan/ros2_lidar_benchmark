@@ -8,8 +8,11 @@ benchmark:
   # レポート出力先
   report_file: "./lidar_benchmark_report.xlsx"
   
+  # グラフ出力ディレクトリ
+  graph_output_dir: "./lidar_benchmark_graphs"
+  
   # 可視化の有効/無効
-  enable_visualization: true
+  enable_visualization: false
 
 # トピック設定
 topics:

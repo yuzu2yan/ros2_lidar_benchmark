@@ -16,9 +16,19 @@ class BenchmarkAnalyzer(Node):
         
         self.declare_parameter('output_file', '/tmp/lidar_benchmark_report.xlsx')
         self.declare_parameter('analysis_duration', 60.0)
+        self.declare_parameter('config_file', '')
         
         self.output_file = self.get_parameter('output_file').value
         self.analysis_duration = self.get_parameter('analysis_duration').value
+        config_file = self.get_parameter('config_file').value
+        
+        # Load config file if provided
+        self.config_data = None
+        if config_file and os.path.exists(config_file):
+            import yaml
+            with open(config_file, 'r') as f:
+                self.config_data = yaml.safe_load(f)
+                self.get_logger().info(f'Loaded config from: {config_file}')
         
         self.diagnostics_sub = self.create_subscription(
             DiagnosticArray,
@@ -189,34 +199,39 @@ class BenchmarkAnalyzer(Node):
             viz_data_file = os.path.join(os.path.dirname(json_file), 'visualization_data.json')
             
             if os.path.exists(viz_data_file):
-                # Use the enhanced Excel generator with graphs
+                # Generate graphs to folder
                 try:
-                    from excel_report_enhanced import EnhancedExcelReport
+                    from graph_generator import GraphGenerator
                 except ImportError:
                     # Try with full path import
                     import sys
                     script_dir = os.path.dirname(os.path.abspath(__file__))
                     sys.path.insert(0, script_dir)
-                    from excel_report_enhanced import EnhancedExcelReport
+                    from graph_generator import GraphGenerator
                 
-                generator = EnhancedExcelReport(json_file, viz_data_file)
-                generator.generate_excel_with_graphs(self.output_file)
-                excel_path = self.output_file
-                self.get_logger().info(f'Excel report with graphs saved to: {excel_path}')
-            else:
-                # Fall back to basic Excel generator
-                try:
-                    from excel_report_generator import ExcelReportGenerator
-                except ImportError:
-                    # Try with full path import
-                    import sys
-                    script_dir = os.path.dirname(os.path.abspath(__file__))
-                    sys.path.insert(0, script_dir)
-                    from excel_report_generator import ExcelReportGenerator
+                # Get graph output directory from config or parameter
+                graph_output_dir = './lidar_benchmark_graphs'
+                if hasattr(self, 'config_data') and self.config_data:
+                    graph_output_dir = self.config_data.get('benchmark', {}).get('graph_output_dir', graph_output_dir)
                 
-                generator = ExcelReportGenerator(json_file, self.output_file)
-                excel_path = generator.generate()
-                self.get_logger().info(f'Excel report saved to: {excel_path}')
+                # Generate graphs
+                graph_gen = GraphGenerator(json_file, viz_data_file, graph_output_dir)
+                graph_path = graph_gen.generate_all_graphs()
+                self.get_logger().info(f'Graphs saved to: {graph_path}')
+            
+            # Always generate Excel report (without images)
+            try:
+                from excel_report_generator import ExcelReportGenerator
+            except ImportError:
+                # Try with full path import
+                import sys
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                sys.path.insert(0, script_dir)
+                from excel_report_generator import ExcelReportGenerator
+            
+            generator = ExcelReportGenerator(json_file, self.output_file)
+            excel_path = generator.generate()
+            self.get_logger().info(f'Excel report saved to: {excel_path}')
             
             # Remove temporary JSON file if Excel was successful
             if os.path.exists(excel_path):
