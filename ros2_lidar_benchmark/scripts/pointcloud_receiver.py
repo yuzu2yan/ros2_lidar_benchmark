@@ -3,7 +3,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy, qos_profile_sensor_data
 import time
 
 
@@ -22,8 +22,7 @@ class PointCloudReceiver(Node):
         # Configure QoS for sensor data
         if use_best_effort:
             # Use the standard sensor data QoS profile
-            from rclpy.qos import QoSPresetProfiles
-            qos_profile = QoSPresetProfiles.SENSOR_DATA.value
+            qos_profile = qos_profile_sensor_data
             self.get_logger().info('Using SENSOR_DATA QoS profile (best for LiDAR data)')
         else:
             qos_profile = QoSProfile(depth=10)
@@ -74,12 +73,33 @@ class PointCloudReceiver(Node):
     
     def debug_callback(self):
         if self.msg_count == 0:
-            self.get_logger().warning(f'No messages received on {self.get_parameter("input_topic").value}')
-            self.get_logger().warning('Please check:')
-            self.get_logger().warning('1. Is tcpreplay running?')
-            self.get_logger().warning('2. Is the topic name correct?')
-            self.get_logger().warning('3. Run: ros2 topic list')
-            self.get_logger().warning('4. Run: ros2 topic hz /vlp16/velodyne_points')
+            input_topic = self.get_parameter("input_topic").value
+            self.get_logger().warning(f'No messages received on {input_topic}')
+            
+            # Check if topic exists
+            topics = dict(self.get_topic_names_and_types())
+            if input_topic in topics:
+                self.get_logger().info(f'✓ Topic {input_topic} exists')
+                
+                # Check for publishers
+                pub_info = self.get_publishers_info_by_topic(input_topic)
+                if pub_info:
+                    self.get_logger().info(f'✓ Found {len(pub_info)} publisher(s)')
+                    for info in pub_info:
+                        self.get_logger().info(f'  Publisher: {info.node_namespace}/{info.node_name}')
+                else:
+                    self.get_logger().warning('✗ No publishers found!')
+            else:
+                self.get_logger().error(f'✗ Topic {input_topic} does not exist!')
+                self.get_logger().info('Available PointCloud2 topics:')
+                for topic, types in topics.items():
+                    if 'sensor_msgs/msg/PointCloud2' in types:
+                        self.get_logger().info(f'  - {topic}')
+            
+            self.get_logger().warning('Please verify:')
+            self.get_logger().warning('1. The filter launch file is running')
+            self.get_logger().warning('2. The topic name in benchmark_config.yaml is correct')
+            self.get_logger().warning(f'3. Run: ros2 topic hz {input_topic}')
 
 
 def main(args=None):

@@ -28,10 +28,10 @@ class MetricsCollector(Node):
         
         # Configure QoS - matching the publisher
         if use_best_effort:
-            # Use the standard sensor data QoS profile
-            from rclpy.qos import QoSPresetProfiles
-            qos_profile = QoSPresetProfiles.SENSOR_DATA.value
-            self.get_logger().info(f'Using SENSOR_DATA QoS profile for monitoring {self.topic}')
+            # Use the standard sensor data QoS profile (same as rviz2)
+            from rclpy.qos import qos_profile_sensor_data
+            qos_profile = qos_profile_sensor_data
+            self.get_logger().info(f'Using sensor_data QoS profile for monitoring {self.topic}')
         else:
             qos_profile = QoSProfile(depth=10)
             self.get_logger().info(f'Using default QoS for monitoring {self.topic}')
