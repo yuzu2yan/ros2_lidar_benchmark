@@ -24,6 +24,8 @@ Jetson Orin Nano SuperでLiDARデータのパフォーマンスを自動計測�
   - psutil
   - matplotlib
   - numpy
+  - pandas
+  - openpyxl
 
 ## インストール
 
@@ -36,6 +38,7 @@ cd ~/ros2_ws
 # 依存関係のインストール
 sudo apt update
 sudo apt install python3-psutil python3-matplotlib python3-numpy
+pip3 install pandas openpyxl
 
 # ビルド
 colcon build --packages-select ros2_lidar_benchmark
@@ -143,14 +146,30 @@ topics:
 ## 出力
 
 ### レポートファイル
-`/tmp/lidar_benchmark_report.json` に以下の情報を含むレポートが生成されます:
+以下の2種類のレポートが自動生成されます:
 
+#### 1. JSONレポート (`/tmp/lidar_benchmark_report.json`)
 - 周波数統計（平均、最小、最大、標準偏差）
 - ジッター統計
 - 帯域幅使用量
 - システムリソース使用率
 - パフォーマンス評価
 - 推奨事項
+
+#### 2. Excelレポート (`/tmp/lidar_benchmark_report.xlsx`)
+自動的にJSONレポートから生成される包括的なExcelファイル:
+- **Summary シート**: テスト概要、パフォーマンス評価、推奨事項
+- **Metrics Details シート**: 詳細なメトリクス情報
+- **System Resources シート**: システムリソース使用状況
+- **Raw Data シート**: 完全なJSON生データ
+
+### 個別にExcelレポートを生成
+```bash
+# 既存のJSONレポートからExcelを生成
+ros2 run ros2_lidar_benchmark excel_report_generator.py \
+  --json-file /tmp/lidar_benchmark_report.json \
+  --output-file /tmp/custom_report.xlsx
+```
 
 ### 可視化
 リアルタイムで以下の4つのグラフを表示:

@@ -13,7 +13,7 @@ echo "Detected ROS 2 $ROS_DISTRO"
 
 # Install Python dependencies
 echo "Installing Python dependencies..."
-pip3 install psutil matplotlib numpy
+pip3 install psutil matplotlib numpy pandas openpyxl
 
 # Make scripts executable
 echo "Making scripts executable..."

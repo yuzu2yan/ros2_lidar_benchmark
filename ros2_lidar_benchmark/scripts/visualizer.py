@@ -47,6 +47,7 @@ class BenchmarkVisualizer(Node):
         self.bandwidth_values = deque(maxlen=self.max_points)
         self.cpu_values = deque(maxlen=self.max_points)
         self.memory_values = deque(maxlen=self.max_points)
+        self.temp_values = deque(maxlen=self.max_points)
         
         self.start_time = time.time()
         self.data_lock = threading.Lock()
@@ -64,16 +65,21 @@ class BenchmarkVisualizer(Node):
                 self.hz_values.append(msg.data[0])
                 self.jitter_values.append(msg.data[1])
                 self.bandwidth_values.append(msg.data[2])
+            
+            if len(msg.data) >= 9:
+                self.throughput_values.append(msg.data[8])  # kpoints_per_second
     
     def system_callback(self, msg):
         with self.data_lock:
             if len(msg.data) >= 2:
                 self.cpu_values.append(msg.data[0])
                 self.memory_values.append(msg.data[1])
+            if len(msg.data) >= 7:
+                self.temp_values.append(msg.data[6])  # CPU temperature
     
     def setup_plots(self):
         plt.style.use('dark_background')
-        self.fig, ((self.ax1, self.ax2), (self.ax3, self.ax4)) = plt.subplots(2, 2, figsize=(12, 8))
+        self.fig, ((self.ax1, self.ax2), (self.ax3, self.ax4), (self.ax5, self.ax6)) = plt.subplots(3, 2, figsize=(12, 10))
         self.fig.suptitle('ROS 2 LiDAR Benchmark Dashboard', fontsize=16)
         
         self.ax1.set_title('Publishing Frequency')
@@ -101,6 +107,22 @@ class BenchmarkVisualizer(Node):
         self.line_cpu, = self.ax4.plot([], [], 'r-', linewidth=2, label='CPU')
         self.line_memory, = self.ax4.plot([], [], 'b-', linewidth=2, label='Memory')
         self.ax4.legend(loc='upper right')
+        
+        self.ax5.set_title('Temperature')
+        self.ax5.set_xlabel('Time (s)')
+        self.ax5.set_ylabel('Temperature (°C)')
+        self.ax5.grid(True, alpha=0.3)
+        self.line_temp, = self.ax5.plot([], [], 'm-', linewidth=2, label='CPU Temp')
+        self.ax5.legend(loc='upper right')
+        
+        self.ax6.set_title('Point Cloud Throughput')
+        self.ax6.set_xlabel('Time (s)')
+        self.ax6.set_ylabel('Throughput (K points/sec)')
+        self.ax6.grid(True, alpha=0.3)
+        self.line_throughput, = self.ax6.plot([], [], 'g-', linewidth=2)
+        
+        # Store throughput values
+        self.throughput_values = deque(maxlen=self.max_points)
         
         plt.tight_layout()
         
@@ -150,11 +172,31 @@ class BenchmarkVisualizer(Node):
                     self.ax4.autoscale_view()
                     self.ax4.set_ylim(0, 100)
                 
-                for ax in [self.ax1, self.ax2, self.ax3, self.ax4]:
+                if len(self.temp_values) > 0:
+                    temp_times = times[-len(self.temp_values):]
+                    self.line_temp.set_data(temp_times, list(self.temp_values))
+                    self.ax5.relim()
+                    self.ax5.autoscale_view()
+                    
+                    avg_temp = np.mean(self.temp_values)
+                    max_temp = np.max(self.temp_values)
+                    self.ax5.set_title(f'Temperature (Avg: {avg_temp:.1f}°C, Max: {max_temp:.1f}°C)')
+                
+                if len(self.throughput_values) > 0:
+                    throughput_times = times[:len(self.throughput_values)]
+                    self.line_throughput.set_data(throughput_times, list(self.throughput_values))
+                    self.ax6.relim()
+                    self.ax6.autoscale_view()
+                    
+                    avg_throughput = np.mean(self.throughput_values)
+                    max_throughput = np.max(self.throughput_values)
+                    self.ax6.set_title(f'Point Cloud Throughput (Avg: {avg_throughput:.1f}K pts/s, Max: {max_throughput:.1f}K pts/s)')
+                
+                for ax in [self.ax1, self.ax2, self.ax3, self.ax4, self.ax5, self.ax6]:
                     if len(times) > 0:
                         ax.set_xlim(max(0, times[-1] - self.window_seconds), times[-1] + 1)
         
-        return self.line_hz, self.line_jitter, self.line_bandwidth, self.line_cpu, self.line_memory
+        return self.line_hz, self.line_jitter, self.line_bandwidth, self.line_cpu, self.line_memory, self.line_temp, self.line_throughput
     
     def save_current_plots(self):
         if self.save_plots:

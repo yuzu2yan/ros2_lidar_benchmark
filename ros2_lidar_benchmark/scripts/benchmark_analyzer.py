@@ -76,6 +76,10 @@ class BenchmarkAnalyzer(Node):
             hz_values = [d['values'].get('current_hz', 0) for d in self.metrics_history]
             jitter_values = [d['values'].get('jitter_ms', 0) for d in self.metrics_history]
             bandwidth_values = [d['values'].get('bandwidth_mbps', 0) for d in self.metrics_history]
+            messages_per_sec = [d['values'].get('messages_per_second', 0) for d in self.metrics_history]
+            mbytes_per_sec = [d['values'].get('mbytes_per_second', 0) for d in self.metrics_history]
+            kpoints_per_sec = [d['values'].get('kpoints_per_second', 0) for d in self.metrics_history]
+            points_per_msg = [d['values'].get('avg_points_per_message', 0) for d in self.metrics_history if d['values'].get('avg_points_per_message', 0) > 0]
             
             self.data['metrics'] = {
                 'samples': len(self.metrics_history),
@@ -95,12 +99,20 @@ class BenchmarkAnalyzer(Node):
                     'average_mbps': sum(bandwidth_values) / len(bandwidth_values) if bandwidth_values else 0,
                     'min_mbps': min(bandwidth_values) if bandwidth_values else 0,
                     'max_mbps': max(bandwidth_values) if bandwidth_values else 0
+                },
+                'throughput': {
+                    'average_messages_per_sec': sum(messages_per_sec) / len(messages_per_sec) if messages_per_sec else 0,
+                    'average_mbytes_per_sec': sum(mbytes_per_sec) / len(mbytes_per_sec) if mbytes_per_sec else 0,
+                    'average_kpoints_per_sec': sum(kpoints_per_sec) / len(kpoints_per_sec) if kpoints_per_sec else 0,
+                    'max_kpoints_per_sec': max(kpoints_per_sec) if kpoints_per_sec else 0,
+                    'average_points_per_message': sum(points_per_msg) / len(points_per_msg) if points_per_msg else 0
                 }
             }
         
         if self.system_history:
             cpu_values = [d['values'].get('cpu_percent', 0) for d in self.system_history]
             memory_values = [d['values'].get('memory_percent', 0) for d in self.system_history]
+            temp_values = [d['values'].get('cpu_temp_c', 0) for d in self.system_history if d['values'].get('cpu_temp_c', 0) > 0]
             
             self.data['system_stats'] = {
                 'samples': len(self.system_history),
@@ -115,6 +127,32 @@ class BenchmarkAnalyzer(Node):
                     'min_percent': min(memory_values) if memory_values else 0
                 }
             }
+            
+            if temp_values:
+                self.data['system_stats']['temperature'] = {
+                    'average_celsius': sum(temp_values) / len(temp_values),
+                    'max_celsius': max(temp_values),
+                    'min_celsius': min(temp_values)
+                }
+                
+                # Extract Jetson-specific temperatures if available
+                jetson_temps = {}
+                for d in self.system_history:
+                    for key, value in d['values'].items():
+                        if key.startswith('jetson_') and key.endswith('_temp_c'):
+                            if key not in jetson_temps:
+                                jetson_temps[key] = []
+                            jetson_temps[key].append(value)
+                
+                if jetson_temps:
+                    self.data['system_stats']['jetson_temperatures'] = {}
+                    for zone, temps in jetson_temps.items():
+                        zone_name = zone.replace('jetson_', '').replace('_temp_c', '')
+                        self.data['system_stats']['jetson_temperatures'][zone_name] = {
+                            'average_celsius': sum(temps) / len(temps),
+                            'max_celsius': max(temps),
+                            'min_celsius': min(temps)
+                        }
         
         self.data['summary'] = {
             'performance_rating': self.calculate_performance_rating(),
@@ -130,6 +168,16 @@ class BenchmarkAnalyzer(Node):
         
         self.get_logger().info(f'Benchmark report saved to: {self.output_file}')
         self.print_summary()
+        
+        # Generate Excel report
+        try:
+            from excel_report_generator import ExcelReportGenerator
+            excel_output = self.output_file.replace('.json', '.xlsx')
+            generator = ExcelReportGenerator(self.output_file, excel_output)
+            excel_path = generator.generate()
+            self.get_logger().info(f'Excel report saved to: {excel_path}')
+        except Exception as e:
+            self.get_logger().warning(f'Failed to generate Excel report: {str(e)}')
     
     def calculate_std(self, values):
         if not values:
@@ -204,6 +252,12 @@ class BenchmarkAnalyzer(Node):
             
             print(f"\nBandwidth Usage:")
             print(f"  Average: {self.data['metrics']['bandwidth']['average_mbps']:.2f} Mbps")
+            
+            print(f"\nThroughput Performance:")
+            print(f"  Messages/sec: {self.data['metrics']['throughput']['average_messages_per_sec']:.2f}")
+            print(f"  MB/sec: {self.data['metrics']['throughput']['average_mbytes_per_sec']:.2f}")
+            print(f"  Points/sec: {self.data['metrics']['throughput']['average_kpoints_per_sec']:.2f}K")
+            print(f"  Points/message: {self.data['metrics']['throughput']['average_points_per_message']:.0f}")
         
         if self.data.get('system_stats'):
             print(f"\nSystem Resources:")

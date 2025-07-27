@@ -45,6 +45,52 @@ class SystemMonitor(Node):
         
         self.get_logger().info('System Monitor started')
         
+        # Detect if running on Jetson
+        self.is_jetson = self.detect_jetson()
+        if self.is_jetson:
+            self.get_logger().info('Jetson platform detected - temperature monitoring enabled')
+    
+    def detect_jetson(self):
+        """Detect if running on NVIDIA Jetson platform"""
+        try:
+            with open('/proc/device-tree/model', 'r') as f:
+                model = f.read().lower()
+                return 'jetson' in model or 'nvidia' in model
+        except:
+            return False
+    
+    def get_jetson_temperatures(self):
+        """Get temperature readings from Jetson thermal zones"""
+        if not self.is_jetson:
+            return None
+        
+        temps = {}
+        thermal_zones = {
+            'cpu': '/sys/devices/virtual/thermal/thermal_zone0/temp',
+            'gpu': '/sys/devices/virtual/thermal/thermal_zone1/temp',
+            'aux': '/sys/devices/virtual/thermal/thermal_zone2/temp',
+            'ao': '/sys/devices/virtual/thermal/thermal_zone3/temp',
+            'pmic': '/sys/devices/virtual/thermal/thermal_zone4/temp',
+            'tboard': '/sys/devices/virtual/thermal/thermal_zone5/temp',
+            'tdiode': '/sys/devices/virtual/thermal/thermal_zone6/temp'
+        }
+        
+        for zone_name, zone_path in thermal_zones.items():
+            try:
+                with open(zone_path, 'r') as f:
+                    # Temperature is in millidegrees Celsius
+                    temp_milli = float(f.read().strip())
+                    temps[f'jetson_{zone_name}_temp_c'] = temp_milli / 1000.0
+            except:
+                continue
+        
+        # Calculate average temperature for main CPU temp metric
+        if temps:
+            temp_values = list(temps.values())
+            temps['cpu_temp_c'] = sum(temp_values) / len(temp_values)
+            
+        return temps if temps else None
+        
     def find_process(self):
         for proc in psutil.process_iter(['pid', 'name']):
             if self.process_name in proc.info['name']:
@@ -67,18 +113,24 @@ class SystemMonitor(Node):
         metrics['disk_percent'] = disk.percent
         metrics['disk_free_gb'] = disk.free / (1024**3)
         
-        try:
-            temps = psutil.sensors_temperatures()
-            if temps:
-                cpu_temps = []
-                for name, entries in temps.items():
-                    for entry in entries:
-                        if 'cpu' in name.lower() or 'cpu' in entry.label.lower():
-                            cpu_temps.append(entry.current)
-                if cpu_temps:
-                    metrics['cpu_temp_c'] = sum(cpu_temps) / len(cpu_temps)
-        except:
-            pass
+        # Jetson temperature monitoring
+        jetson_temps = self.get_jetson_temperatures()
+        if jetson_temps:
+            metrics.update(jetson_temps)
+        else:
+            # Fallback to psutil for non-Jetson systems
+            try:
+                temps = psutil.sensors_temperatures()
+                if temps:
+                    cpu_temps = []
+                    for name, entries in temps.items():
+                        for entry in entries:
+                            if 'cpu' in name.lower() or 'cpu' in entry.label.lower():
+                                cpu_temps.append(entry.current)
+                    if cpu_temps:
+                        metrics['cpu_temp_c'] = sum(cpu_temps) / len(cpu_temps)
+            except:
+                pass
         
         if self.process and self.process.is_running():
             try:
@@ -104,7 +156,7 @@ class SystemMonitor(Node):
         metrics['memory_avg_1min'] = sum(self.memory_percent_history) / len(self.memory_percent_history)
         
         system_msg = Float64MultiArray()
-        system_msg.data = [
+        base_data = [
             metrics.get('cpu_percent', 0.0),
             metrics.get('memory_percent', 0.0),
             metrics.get('cpu_avg_1min', 0.0),
@@ -113,6 +165,15 @@ class SystemMonitor(Node):
             metrics.get('process_memory_mb', 0.0),
             metrics.get('cpu_temp_c', 0.0)
         ]
+        
+        # Add Jetson-specific temperatures if available
+        if self.is_jetson:
+            for zone in ['cpu', 'gpu', 'aux', 'ao', 'pmic', 'tboard', 'tdiode']:
+                key = f'jetson_{zone}_temp_c'
+                if key in metrics:
+                    base_data.append(metrics[key])
+        
+        system_msg.data = base_data
         self.system_pub.publish(system_msg)
         
         diag_array = DiagnosticArray()

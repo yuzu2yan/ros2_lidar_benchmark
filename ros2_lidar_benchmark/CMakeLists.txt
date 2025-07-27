@@ -28,6 +28,7 @@ install(PROGRAMS
   scripts/system_monitor.py
   scripts/visualizer.py
   scripts/benchmark_analyzer.py
+  scripts/excel_report_generator.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -50,10 +50,16 @@ class MetricsCollector(Node):
         self.timestamps = collections.deque(maxlen=self.window_size)
         self.message_sizes = collections.deque(maxlen=self.window_size)
         self.intervals = collections.deque(maxlen=self.window_size)
+        self.points_per_message = collections.deque(maxlen=self.window_size)
         
         self.total_messages = 0
         self.total_bytes = 0
+        self.total_points = 0
         self.start_time = time.time()
+        self.last_throughput_time = time.time()
+        self.throughput_messages = 0
+        self.throughput_bytes = 0
+        self.throughput_points = 0
         
         self.get_logger().info(f'Metrics Collector started for topic: {self.topic}')
         
@@ -65,9 +71,19 @@ class MetricsCollector(Node):
         if message_size == 0:
             message_size = msg.width * msg.height * msg.point_step
         
+        # Calculate number of points in the message
+        num_points = msg.width * msg.height
+        self.points_per_message.append(num_points)
+        
         self.message_sizes.append(message_size)
         self.total_messages += 1
         self.total_bytes += message_size
+        self.total_points += num_points
+        
+        # Update throughput counters
+        self.throughput_messages += 1
+        self.throughput_bytes += message_size
+        self.throughput_points += num_points
         
         if len(self.timestamps) > 1:
             interval = self.timestamps[-1] - self.timestamps[-2]
@@ -105,6 +121,25 @@ class MetricsCollector(Node):
         if len(self.message_sizes) > 0:
             metrics['avg_message_size_kb'] = np.mean(self.message_sizes) / 1024
         
+        # Throughput calculations
+        throughput_time_window = current_time - self.last_throughput_time
+        if throughput_time_window > 0:
+            metrics['messages_per_second'] = self.throughput_messages / throughput_time_window
+            metrics['mbytes_per_second'] = (self.throughput_bytes / throughput_time_window) / 1e6
+            metrics['points_per_second'] = self.throughput_points / throughput_time_window
+            metrics['kpoints_per_second'] = metrics['points_per_second'] / 1000
+            
+            # Reset throughput counters every calculation
+            if throughput_time_window >= 1.0:  # Reset every second
+                self.last_throughput_time = current_time
+                self.throughput_messages = 0
+                self.throughput_bytes = 0
+                self.throughput_points = 0
+        
+        if len(self.points_per_message) > 0:
+            metrics['avg_points_per_message'] = np.mean(self.points_per_message)
+            metrics['total_points_millions'] = self.total_points / 1e6
+        
         return metrics
     
     def publish_metrics(self):
@@ -120,7 +155,10 @@ class MetricsCollector(Node):
             metrics.get('bandwidth_mbps', 0.0),
             metrics.get('avg_message_size_kb', 0.0),
             metrics.get('total_messages', 0.0),
-            metrics.get('total_mb', 0.0)
+            metrics.get('total_mb', 0.0),
+            metrics.get('messages_per_second', 0.0),
+            metrics.get('mbytes_per_second', 0.0),
+            metrics.get('kpoints_per_second', 0.0)
         ]
         self.metrics_pub.publish(metrics_msg)
         
@@ -152,7 +190,8 @@ class MetricsCollector(Node):
         self.get_logger().info(
             f"Hz: {metrics.get('current_hz', 0):.2f}, "
             f"Jitter: {metrics.get('jitter_ms', 0):.2f}ms, "
-            f"BW: {metrics.get('bandwidth_mbps', 0):.2f}Mbps"
+            f"BW: {metrics.get('bandwidth_mbps', 0):.2f}Mbps, "
+            f"Throughput: {metrics.get('kpoints_per_second', 0):.1f}K pts/s"
         )
 
 
