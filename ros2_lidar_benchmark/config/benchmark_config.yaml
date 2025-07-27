@@ -13,8 +13,10 @@ benchmark:
 
 # トピック設定
 topics:
-  # tcpreplayから受信する点群トピック
-  input_topic: "/vlp16/velodyne_points"
+  # フィルターからの点群トピック（以下から選択）
+  # - "/vlp16/velodyne_points" (生データ)
+  # - "/vlp16/points_filtered" (フィルター済みデータ)
+  input_topic: "/vlp16/points_filtered"
   
   # ベンチマーク用の中間トピック
   output_topic: "/benchmark/points"
