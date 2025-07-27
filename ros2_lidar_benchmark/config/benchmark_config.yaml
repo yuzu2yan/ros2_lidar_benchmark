@@ -3,7 +3,7 @@
 # ベンチマーク設定
 benchmark:
   # 計測時間（秒）
-  analysis_duration: 60.0
+  analysis_duration: 300.0
   
   # レポート出力先
   report_file: "/tmp/lidar_benchmark_report.xlsx"
