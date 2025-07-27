@@ -115,10 +115,10 @@ class MetricsCollector(Node):
         
         intervals_array = np.array(self.intervals)
         if len(intervals_array) > 0:
-            metrics['current_hz'] = 1.0 / np.mean(intervals_array)
-            metrics['jitter_ms'] = np.std(intervals_array) * 1000
-            metrics['min_interval_ms'] = np.min(intervals_array) * 1000
-            metrics['max_interval_ms'] = np.max(intervals_array) * 1000
+            metrics['current_hz'] = float(1.0 / np.mean(intervals_array))
+            metrics['jitter_ms'] = float(np.std(intervals_array) * 1000)
+            metrics['min_interval_ms'] = float(np.min(intervals_array) * 1000)
+            metrics['max_interval_ms'] = float(np.max(intervals_array) * 1000)
         
         if len(self.timestamps) > 0:
             time_window = self.timestamps[-1] - self.timestamps[0]
@@ -135,7 +135,7 @@ class MetricsCollector(Node):
         metrics['total_mb'] = self.total_bytes / 1e6
         
         if len(self.message_sizes) > 0:
-            metrics['avg_message_size_kb'] = np.mean(self.message_sizes) / 1024
+            metrics['avg_message_size_kb'] = float(np.mean(self.message_sizes) / 1024)
         
         # Throughput calculations
         throughput_time_window = current_time - self.last_throughput_time
@@ -153,7 +153,7 @@ class MetricsCollector(Node):
                 self.throughput_points = 0
         
         if len(self.points_per_message) > 0:
-            metrics['avg_points_per_message'] = np.mean(self.points_per_message)
+            metrics['avg_points_per_message'] = float(np.mean(self.points_per_message))
             metrics['total_points_millions'] = self.total_points / 1e6
         
         return metrics
@@ -165,16 +165,17 @@ class MetricsCollector(Node):
             return
         
         metrics_msg = Float64MultiArray()
+        # Ensure all values are float type
         metrics_msg.data = [
-            metrics.get('current_hz', 0.0),
-            metrics.get('jitter_ms', 0.0),
-            metrics.get('bandwidth_mbps', 0.0),
-            metrics.get('avg_message_size_kb', 0.0),
-            metrics.get('total_messages', 0.0),
-            metrics.get('total_mb', 0.0),
-            metrics.get('messages_per_second', 0.0),
-            metrics.get('mbytes_per_second', 0.0),
-            metrics.get('kpoints_per_second', 0.0)
+            float(metrics.get('current_hz', 0.0)),
+            float(metrics.get('jitter_ms', 0.0)),
+            float(metrics.get('bandwidth_mbps', 0.0)),
+            float(metrics.get('avg_message_size_kb', 0.0)),
+            float(metrics.get('total_messages', 0.0)),
+            float(metrics.get('total_mb', 0.0)),
+            float(metrics.get('messages_per_second', 0.0)),
+            float(metrics.get('mbytes_per_second', 0.0)),
+            float(metrics.get('kpoints_per_second', 0.0))
         ]
         self.metrics_pub.publish(metrics_msg)
         

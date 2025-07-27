@@ -156,14 +156,15 @@ class SystemMonitor(Node):
         metrics['memory_avg_1min'] = sum(self.memory_percent_history) / len(self.memory_percent_history)
         
         system_msg = Float64MultiArray()
+        # Ensure all values are float type
         base_data = [
-            metrics.get('cpu_percent', 0.0),
-            metrics.get('memory_percent', 0.0),
-            metrics.get('cpu_avg_1min', 0.0),
-            metrics.get('memory_avg_1min', 0.0),
-            metrics.get('process_cpu_percent', 0.0),
-            metrics.get('process_memory_mb', 0.0),
-            metrics.get('cpu_temp_c', 0.0)
+            float(metrics.get('cpu_percent', 0.0)),
+            float(metrics.get('memory_percent', 0.0)),
+            float(metrics.get('cpu_avg_1min', 0.0)),
+            float(metrics.get('memory_avg_1min', 0.0)),
+            float(metrics.get('process_cpu_percent', 0.0)),
+            float(metrics.get('process_memory_mb', 0.0)),
+            float(metrics.get('cpu_temp_c', 0.0))
         ]
         
         # Add Jetson-specific temperatures if available
@@ -171,7 +172,7 @@ class SystemMonitor(Node):
             for zone in ['cpu', 'gpu', 'aux', 'ao', 'pmic', 'tboard', 'tdiode']:
                 key = f'jetson_{zone}_temp_c'
                 if key in metrics:
-                    base_data.append(metrics[key])
+                    base_data.append(float(metrics[key]))
         
         system_msg.data = base_data
         self.system_pub.publish(system_msg)
