@@ -1,6 +1,6 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, Shutdown
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 import os
@@ -112,7 +112,8 @@ def generate_launch_description():
             'output_file': LaunchConfiguration('report_file'),
             'analysis_duration': LaunchConfiguration('analysis_duration')
         }],
-        output='screen'
+        output='screen',
+        on_exit=Shutdown()  # Shutdown entire launch when analyzer exits
     )
     
     return LaunchDescription([

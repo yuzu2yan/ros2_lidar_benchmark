@@ -13,7 +13,7 @@ class BenchmarkAnalyzer(Node):
     def __init__(self):
         super().__init__('benchmark_analyzer')
         
-        self.declare_parameter('output_file', '/tmp/lidar_benchmark_report.json')
+        self.declare_parameter('output_file', '/tmp/lidar_benchmark_report.xlsx')
         self.declare_parameter('analysis_duration', 60.0)
         
         self.output_file = self.get_parameter('output_file').value
@@ -68,8 +68,11 @@ class BenchmarkAnalyzer(Node):
         if elapsed >= self.analysis_duration:
             self.analyze_and_save()
             self.get_logger().info('Analysis complete. Shutting down...')
-            self.destroy_node()
-            rclpy.shutdown()
+            
+            # Shutdown all nodes
+            import os
+            import signal
+            os.kill(os.getppid(), signal.SIGTERM)  # Send termination signal to parent process
     
     def analyze_and_save(self):
         if self.metrics_history:
@@ -163,21 +166,27 @@ class BenchmarkAnalyzer(Node):
         self.data['end_time'] = datetime.now().isoformat()
         
         os.makedirs(os.path.dirname(self.output_file), exist_ok=True)
-        with open(self.output_file, 'w') as f:
+        
+        # Save JSON data temporarily
+        json_file = self.output_file.replace('.xlsx', '.json')
+        with open(json_file, 'w') as f:
             json.dump(self.data, f, indent=2)
         
-        self.get_logger().info(f'Benchmark report saved to: {self.output_file}')
-        self.print_summary()
-        
-        # Generate Excel report
+        # Generate Excel report as primary output
         try:
             from excel_report_generator import ExcelReportGenerator
-            excel_output = self.output_file.replace('.json', '.xlsx')
-            generator = ExcelReportGenerator(self.output_file, excel_output)
+            generator = ExcelReportGenerator(json_file, self.output_file)
             excel_path = generator.generate()
             self.get_logger().info(f'Excel report saved to: {excel_path}')
+            
+            # Remove temporary JSON file if Excel was successful
+            if os.path.exists(excel_path):
+                os.remove(json_file)
         except Exception as e:
             self.get_logger().warning(f'Failed to generate Excel report: {str(e)}')
+            self.get_logger().info(f'JSON report saved to: {json_file}')
+        
+        self.print_summary()
     
     def calculate_std(self, values):
         if not values:

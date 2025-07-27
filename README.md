@@ -125,19 +125,16 @@ ros2 launch ros2_lidar_benchmark benchmark.launch.py \
 
 ## Output Files
 
-1. **JSON Report** (`/tmp/lidar_benchmark_report.json`)
-   - Raw measurement data
-   - Statistical analysis
-   - Performance ratings
+1. **Excel Report** (`/tmp/lidar_benchmark_report.xlsx`)
+   - Summary sheet with overview and ratings
+   - Detailed metrics sheet with all statistics
+   - System resources sheet including temperatures
+   - Raw data sheet with complete JSON data
+   - Automatically generated after benchmark completion
 
-2. **Excel Report** (`/tmp/lidar_benchmark_report.xlsx`)
-   - Summary sheet with overview
-   - Detailed metrics sheet
-   - System resources sheet
-   - Raw data sheet
-
-3. **Visualization Plots** (`/tmp/lidar_benchmark/`)
+2. **Visualization Plots** (`/tmp/lidar_benchmark/`)
    - PNG images of performance graphs
+   - Saved when visualization is enabled
 
 ## Running Individual Nodes
 

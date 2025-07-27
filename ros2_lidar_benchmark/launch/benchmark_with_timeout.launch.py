@@ -1,6 +1,6 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument, GroupAction, Shutdown
+from launch.actions import DeclareLaunchArgument, TimerAction, Shutdown
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.conditions import IfCondition
 from launch_ros.substitutions import FindPackageShare
@@ -30,7 +30,6 @@ def generate_launch_description():
     config_file = LaunchConfiguration('config_file')
     
     # Read config file (for default values)
-    # Note: This reads the default config at launch time
     config_path = os.path.join(
         FindPackageShare('ros2_lidar_benchmark').find('ros2_lidar_benchmark'),
         'config',
@@ -130,6 +129,16 @@ def generate_launch_description():
         on_exit=Shutdown()  # Shutdown entire launch when analyzer exits
     )
     
+    # Calculate timeout with 5 second buffer
+    analysis_duration_float = float(default_analysis_duration)
+    timeout_duration = analysis_duration_float + 5.0
+    
+    # Timer to force shutdown after timeout
+    shutdown_timer = TimerAction(
+        period=timeout_duration,
+        actions=[Shutdown(reason='Benchmark timeout reached')]
+    )
+    
     return LaunchDescription([
         config_file_arg,
         input_topic_arg,
@@ -140,5 +149,6 @@ def generate_launch_description():
         metrics_collector_node,
         system_monitor_node,
         visualizer_node,
-        analyzer_node
+        analyzer_node,
+        shutdown_timer
     ])

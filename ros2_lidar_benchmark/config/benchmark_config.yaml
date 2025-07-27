@@ -6,7 +6,7 @@ benchmark:
   analysis_duration: 60.0
   
   # レポート出力先
-  report_file: "/tmp/lidar_benchmark_report.json"
+  report_file: "/tmp/lidar_benchmark_report.xlsx"
   
   # 可視化の有効/無効
   enable_visualization: true
@@ -14,7 +14,7 @@ benchmark:
 # トピック設定
 topics:
   # tcpreplayから受信する点群トピック
-  input_topic: "/lidar/points"
+  input_topic: "/vlp16/velodyne_points"
   
   # ベンチマーク用の中間トピック
   output_topic: "/benchmark/points"

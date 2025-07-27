@@ -130,7 +130,8 @@ class BenchmarkVisualizer(Node):
             self.fig,
             self.update_plots,
             interval=int(1000/self.update_rate),
-            blit=False
+            blit=True,
+            cache_frame_data=False
         )
         
     def update_plots(self, frame):
