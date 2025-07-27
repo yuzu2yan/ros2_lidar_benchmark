@@ -110,7 +110,7 @@ def generate_launch_description():
         name='benchmark_visualizer',
         condition=IfCondition(LaunchConfiguration('enable_visualization')),
         parameters=[{
-            'window_seconds': 60,
+            'window_seconds': 60.0,  # Changed to float
             'update_rate': 2.0,
             'save_plots': True,
             'output_dir': '/tmp/lidar_benchmark'
