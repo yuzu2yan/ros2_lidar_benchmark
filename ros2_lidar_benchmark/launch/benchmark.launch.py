@@ -118,6 +118,16 @@ def generate_launch_description():
         output='screen'
     )
     
+    data_recorder_node = Node(
+        package='ros2_lidar_benchmark',
+        executable='data_recorder.py',
+        name='data_recorder',
+        parameters=[{
+            'output_dir': '/tmp/lidar_benchmark'
+        }],
+        output='screen'
+    )
+    
     analyzer_node = Node(
         package='ros2_lidar_benchmark',
         executable='benchmark_analyzer.py',
@@ -140,6 +150,7 @@ def generate_launch_description():
         pointcloud_receiver_node,
         metrics_collector_node,
         system_monitor_node,
+        data_recorder_node,
         visualizer_node,
         analyzer_node
     ])

@@ -34,7 +34,14 @@ class GraphGenerator:
         # Create output directory with timestamp
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         output_path = os.path.join(self.output_dir, f'benchmark_{timestamp}')
-        os.makedirs(output_path, exist_ok=True)
+        
+        print(f"Creating directory: {output_path}")
+        try:
+            os.makedirs(output_path, exist_ok=True)
+            print(f"Directory created successfully")
+        except Exception as e:
+            print(f"Failed to create directory: {e}")
+            raise
         
         print(f"Generating graphs in: {output_path}")
         

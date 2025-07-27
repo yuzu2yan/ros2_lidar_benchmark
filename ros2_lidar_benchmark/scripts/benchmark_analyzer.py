@@ -80,7 +80,15 @@ class BenchmarkAnalyzer(Node):
     def check_duration(self):
         elapsed = time.time() - self.start_time
         if elapsed >= self.analysis_duration:
+            self.get_logger().info('Analysis duration reached. Processing results...')
+            
+            # Analyze and save (this includes graph generation)
             self.analyze_and_save()
+            
+            # Wait for file I/O to complete
+            self.get_logger().info('Waiting for file operations to complete...')
+            time.sleep(3.0)
+            
             self.get_logger().info('Analysis complete. Shutting down...')
             
             # Send shutdown signal to other nodes
@@ -199,31 +207,41 @@ class BenchmarkAnalyzer(Node):
             viz_data_file = os.path.join(os.path.dirname(json_file), 'visualization_data.json')
             
             if os.path.exists(viz_data_file):
+                self.get_logger().info(f'Found visualization data: {viz_data_file}')
                 # Generate graphs to folder
                 try:
-                    from graph_generator import GraphGenerator
-                except ImportError:
-                    # Try with full path import
-                    import sys
-                    script_dir = os.path.dirname(os.path.abspath(__file__))
-                    sys.path.insert(0, script_dir)
-                    from graph_generator import GraphGenerator
-                
-                # Get graph output directory from config or parameter
-                graph_output_dir = '/tmp/lidar_benchmark_graphs'  # Default to absolute path
-                if hasattr(self, 'config_data') and self.config_data:
-                    graph_output_dir = self.config_data.get('benchmark', {}).get('graph_output_dir', graph_output_dir)
-                
-                # Ensure absolute path
-                if not os.path.isabs(graph_output_dir):
-                    graph_output_dir = os.path.abspath(graph_output_dir)
-                
-                self.get_logger().info(f'Graph output directory: {graph_output_dir}')
-                
-                # Generate graphs
-                graph_gen = GraphGenerator(json_file, viz_data_file, graph_output_dir)
-                graph_path = graph_gen.generate_all_graphs()
-                self.get_logger().info(f'Graphs saved to: {graph_path}')
+                    try:
+                        from graph_generator import GraphGenerator
+                    except ImportError:
+                        # Try with full path import
+                        import sys
+                        script_dir = os.path.dirname(os.path.abspath(__file__))
+                        sys.path.insert(0, script_dir)
+                        from graph_generator import GraphGenerator
+                    
+                    # Get graph output directory from config or parameter
+                    graph_output_dir = '/tmp/lidar_benchmark_graphs'  # Default to absolute path
+                    if hasattr(self, 'config_data') and self.config_data:
+                        graph_output_dir = self.config_data.get('benchmark', {}).get('graph_output_dir', graph_output_dir)
+                    
+                    # Ensure absolute path
+                    if not os.path.isabs(graph_output_dir):
+                        graph_output_dir = os.path.abspath(graph_output_dir)
+                    
+                    self.get_logger().info(f'Graph output directory: {graph_output_dir}')
+                    
+                    # Generate graphs
+                    self.get_logger().info('Starting graph generation...')
+                    graph_gen = GraphGenerator(json_file, viz_data_file, graph_output_dir)
+                    graph_path = graph_gen.generate_all_graphs()
+                    self.get_logger().info(f'Graphs successfully saved to: {graph_path}')
+                    
+                except Exception as e:
+                    self.get_logger().error(f'Failed to generate graphs: {str(e)}')
+                    import traceback
+                    self.get_logger().error(traceback.format_exc())
+            else:
+                self.get_logger().warning(f'Visualization data not found: {viz_data_file}')
             
             # Always generate Excel report (without images)
             try:
