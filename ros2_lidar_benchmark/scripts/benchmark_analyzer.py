@@ -3,6 +3,7 @@
 import rclpy
 from rclpy.node import Node
 from diagnostic_msgs.msg import DiagnosticArray
+from std_msgs.msg import Empty
 import json
 import time
 import os
@@ -40,6 +41,9 @@ class BenchmarkAnalyzer(Node):
         
         self.timer = self.create_timer(1.0, self.check_duration)
         
+        # Publisher for shutdown signal
+        self.shutdown_pub = self.create_publisher(Empty, '/benchmark/shutdown', 10)
+        
         self.get_logger().info(f'Benchmark Analyzer started. Recording for {self.analysis_duration} seconds...')
         
     def diagnostics_callback(self, msg):
@@ -68,6 +72,13 @@ class BenchmarkAnalyzer(Node):
         if elapsed >= self.analysis_duration:
             self.analyze_and_save()
             self.get_logger().info('Analysis complete. Shutting down...')
+            
+            # Send shutdown signal to other nodes
+            shutdown_msg = Empty()
+            self.shutdown_pub.publish(shutdown_msg)
+            
+            # Wait a bit for other nodes to clean up
+            time.sleep(2.0)
             
             # Shutdown all nodes
             import os
@@ -179,14 +190,30 @@ class BenchmarkAnalyzer(Node):
             
             if os.path.exists(viz_data_file):
                 # Use the enhanced Excel generator with graphs
-                from excel_report_enhanced import EnhancedExcelReport
+                try:
+                    from excel_report_enhanced import EnhancedExcelReport
+                except ImportError:
+                    # Try with full path import
+                    import sys
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    sys.path.insert(0, script_dir)
+                    from excel_report_enhanced import EnhancedExcelReport
+                
                 generator = EnhancedExcelReport(json_file, viz_data_file)
                 generator.generate_excel_with_graphs(self.output_file)
                 excel_path = self.output_file
                 self.get_logger().info(f'Excel report with graphs saved to: {excel_path}')
             else:
                 # Fall back to basic Excel generator
-                from excel_report_generator import ExcelReportGenerator
+                try:
+                    from excel_report_generator import ExcelReportGenerator
+                except ImportError:
+                    # Try with full path import
+                    import sys
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    sys.path.insert(0, script_dir)
+                    from excel_report_generator import ExcelReportGenerator
+                
                 generator = ExcelReportGenerator(json_file, self.output_file)
                 excel_path = generator.generate()
                 self.get_logger().info(f'Excel report saved to: {excel_path}')

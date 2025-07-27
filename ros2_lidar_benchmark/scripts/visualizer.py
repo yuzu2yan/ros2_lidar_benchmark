@@ -5,7 +5,7 @@ matplotlib.use('TkAgg')  # Set backend before importing pyplot
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64MultiArray, Empty
 import matplotlib.pyplot as plt
 from collections import deque
 import numpy as np
@@ -87,6 +87,17 @@ class BenchmarkVisualizer(Node):
         
         # Debug timer
         self.debug_timer = self.create_timer(5.0, self.debug_callback)
+        
+        # Flag to track if we should close
+        self.should_close = False
+        
+        # Subscriber to shutdown event
+        self.create_subscription(
+            std_msgs.msg.Empty,
+            '/benchmark/shutdown',
+            self.shutdown_callback,
+            10
+        )
         
     def metrics_callback(self, msg):
         with self.data_lock:
@@ -297,6 +308,18 @@ class BenchmarkVisualizer(Node):
                 f'CPU: {len(self.data["cpu"])}, '
                 f'Last metrics: {self.last_metrics_time:.1f}s ago'
             )
+    
+    def shutdown_callback(self, msg):
+        """Handle shutdown signal"""
+        self.get_logger().info('Received shutdown signal, closing visualizer...')
+        self.should_close = True
+        
+        # Save plots before closing
+        self.save_plots_to_file()
+        
+        # Close matplotlib window
+        if self.plot_initialized:
+            plt.close('all')
 
 
 def main(args=None):
