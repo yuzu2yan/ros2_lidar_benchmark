@@ -81,6 +81,16 @@ class BenchmarkVisualizer(Node):
                 self.temp_values.append(msg.data[6])  # CPU temperature
     
     def setup_plots(self):
+        # Ensure interactive mode is on
+        plt.ion()
+        
+        # Try to use a specific backend
+        try:
+            import matplotlib
+            matplotlib.use('TkAgg')  # or 'Qt5Agg' if you have Qt
+        except:
+            pass
+        
         plt.style.use('dark_background')
         self.fig, ((self.ax1, self.ax2), (self.ax3, self.ax4), (self.ax5, self.ax6)) = plt.subplots(3, 2, figsize=(12, 10))
         self.fig.suptitle('ROS 2 LiDAR Benchmark Dashboard', fontsize=16)
