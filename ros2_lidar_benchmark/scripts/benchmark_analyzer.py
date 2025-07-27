@@ -179,8 +179,8 @@ class BenchmarkAnalyzer(Node):
             
             if os.path.exists(viz_data_file):
                 # Use the enhanced Excel generator with graphs
-                from excel_report_with_graphs import ExcelReportWithGraphs
-                generator = ExcelReportWithGraphs(json_file, viz_data_file)
+                from excel_report_enhanced import EnhancedExcelReport
+                generator = EnhancedExcelReport(json_file, viz_data_file)
                 generator.generate_excel_with_graphs(self.output_file)
                 excel_path = self.output_file
                 self.get_logger().info(f'Excel report with graphs saved to: {excel_path}')
