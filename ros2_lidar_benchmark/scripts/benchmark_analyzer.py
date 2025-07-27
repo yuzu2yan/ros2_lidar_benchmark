@@ -24,11 +24,17 @@ class BenchmarkAnalyzer(Node):
         
         # Load config file if provided
         self.config_data = None
+        self.viz_output_dir = '/tmp/lidar_benchmark'  # Default
+        
         if config_file and os.path.exists(config_file):
             import yaml
             with open(config_file, 'r') as f:
                 self.config_data = yaml.safe_load(f)
                 self.get_logger().info(f'Loaded config from: {config_file}')
+                
+                # Get visualization output directory from config
+                if 'visualization' in self.config_data:
+                    self.viz_output_dir = self.config_data['visualization'].get('output_dir', self.viz_output_dir)
         
         self.diagnostics_sub = self.create_subscription(
             DiagnosticArray,
@@ -204,7 +210,9 @@ class BenchmarkAnalyzer(Node):
         # Generate Excel report as primary output
         try:
             # Check if visualization data exists
-            viz_data_file = os.path.join(os.path.dirname(json_file), 'visualization_data.json')
+            # Use the configured visualization output directory
+            viz_data_file = os.path.join(self.viz_output_dir, 'visualization_data.json')
+            self.get_logger().info(f'Looking for visualization data at: {viz_data_file}')
             
             if os.path.exists(viz_data_file):
                 self.get_logger().info(f'Found visualization data: {viz_data_file}')
