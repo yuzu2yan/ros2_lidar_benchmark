@@ -1,0 +1,50 @@
+# ROS 2 LiDAR Benchmark Configuration
+
+# ベンチマーク設定
+benchmark:
+  # 計測時間（秒）
+  analysis_duration: 60.0
+  
+  # レポート出力先
+  report_file: "/tmp/lidar_benchmark_report.json"
+  
+  # 可視化の有効/無効
+  enable_visualization: true
+
+# トピック設定
+topics:
+  # tcpreplayから受信する点群トピック
+  input_topic: "/lidar/points"
+  
+  # ベンチマーク用の中間トピック
+  output_topic: "/benchmark/points"
+
+# メトリクス計測設定
+metrics:
+  # 計測ウィンドウサイズ（サンプル数）
+  window_size: 100
+  
+  # メトリクス公開レート（Hz）
+  publish_rate: 2.0
+
+# システムモニター設定
+system_monitor:
+  # 監視レート（Hz）
+  monitor_rate: 1.0
+  
+  # 特定プロセスの監視（空の場合は全体を監視）
+  process_name: ""
+
+# 可視化設定
+visualization:
+  # グラフ表示時間窓（秒）
+  window_seconds: 60
+  
+  # グラフ更新レート（Hz）
+  update_rate: 2.0
+  
+  # プロット画像の保存
+  save_plots: true
+  
+  # 出力ディレクトリ
+  output_dir: "/tmp/lidar_benchmark"

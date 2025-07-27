@@ -1,32 +1,72 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument, GroupAction
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.conditions import IfCondition
+from launch_ros.substitutions import FindPackageShare
+import os
+import yaml
 
 
 def generate_launch_description():
+    # Find package share directory
+    pkg_share = FindPackageShare('ros2_lidar_benchmark')
+    
+    # Default config file path
+    default_config_file = PathJoinSubstitution([
+        pkg_share,
+        'config',
+        'benchmark_config.yaml'
+    ])
+    
+    # Declare config file argument
+    config_file_arg = DeclareLaunchArgument(
+        'config_file',
+        default_value=default_config_file,
+        description='Path to the configuration file'
+    )
+    
+    # Load configuration
+    config_file = LaunchConfiguration('config_file')
+    
+    # Read config file (for default values)
+    # Note: This reads the default config at launch time
+    config_path = os.path.join(
+        FindPackageShare('ros2_lidar_benchmark').find('ros2_lidar_benchmark'),
+        'config',
+        'benchmark_config.yaml'
+    )
+    
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    
+    # Extract default values from config
+    default_input_topic = config['topics']['input_topic']
+    default_output_topic = config['topics']['output_topic']
+    default_enable_viz = str(config['benchmark']['enable_visualization']).lower()
+    default_analysis_duration = str(config['benchmark']['analysis_duration'])
+    
     input_topic_arg = DeclareLaunchArgument(
         'input_topic',
-        default_value='/lidar/points',
+        default_value=default_input_topic,
         description='Input point cloud topic from tcpreplay'
     )
     
     output_topic_arg = DeclareLaunchArgument(
         'output_topic',
-        default_value='/benchmark/points',
+        default_value=default_output_topic,
         description='Output point cloud topic for benchmarking'
     )
     
     enable_viz_arg = DeclareLaunchArgument(
         'enable_visualization',
-        default_value='true',
+        default_value=default_enable_viz,
         description='Enable real-time visualization'
     )
     
     analysis_duration_arg = DeclareLaunchArgument(
         'analysis_duration',
-        default_value='60.0',
+        default_value=default_analysis_duration,
         description='Duration for benchmark analysis in seconds'
     )
     
@@ -90,6 +130,7 @@ def generate_launch_description():
     )
     
     return LaunchDescription([
+        config_file_arg,
         input_topic_arg,
         output_topic_arg,
         enable_viz_arg,

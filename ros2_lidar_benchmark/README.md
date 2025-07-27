@@ -53,22 +53,49 @@ sudo tcpreplay -i eth0 -l 0 lidar_data.pcap
 
 ### 2. ベンチマークの実行
 
-#### 可視化ありの場合（デフォルト）:
+#### デフォルト設定で実行:
 ```bash
+# configファイルの設定値を使用
+ros2 launch ros2_lidar_benchmark benchmark.launch.py
+```
+
+#### カスタム設定ファイルを使用:
+```bash
+# 独自の設定ファイルを指定
 ros2 launch ros2_lidar_benchmark benchmark.launch.py \
-  input_topic:=/lidar/points \
-  analysis_duration:=60.0
+  config_file:=/path/to/your/config.yaml
+```
+
+#### 設定を個別にオーバーライド:
+```bash
+# configファイルの値を上書き
+ros2 launch ros2_lidar_benchmark benchmark.launch.py \
+  input_topic:=/custom/lidar/topic \
+  analysis_duration:=120.0
 ```
 
 #### ヘッドレスモード（可視化なし）:
 ```bash
-ros2 launch ros2_lidar_benchmark benchmark_headless.launch.py \
-  input_topic:=/lidar/points \
-  analysis_duration:=60.0 \
-  report_file:=/tmp/benchmark_report.json
+ros2 launch ros2_lidar_benchmark benchmark_headless.launch.py
 ```
 
-### 3. 個別ノードの実行
+### 3. 設定ファイルのカスタマイズ
+
+`config/benchmark_config.yaml`をコピーして編集:
+
+```bash
+# 設定ファイルをコピー
+cp ros2_lidar_benchmark/config/benchmark_config.yaml my_benchmark_config.yaml
+
+# 編集（計測時間とトピック名を変更）
+nano my_benchmark_config.yaml
+
+# カスタム設定で実行
+ros2 launch ros2_lidar_benchmark benchmark.launch.py \
+  config_file:=$(pwd)/my_benchmark_config.yaml
+```
+
+### 4. 個別ノードの実行
 
 ```bash
 # 点群受信ノード
@@ -87,16 +114,31 @@ ros2 run ros2_lidar_benchmark visualizer.py
 ros2 run ros2_lidar_benchmark benchmark_analyzer.py
 ```
 
-## パラメータ
+## 設定ファイル
+
+### 設定項目 (config/benchmark_config.yaml)
+
+```yaml
+# ベンチマーク設定
+benchmark:
+  analysis_duration: 60.0      # 計測時間（秒）
+  report_file: "/tmp/lidar_benchmark_report.json"
+  enable_visualization: true
+
+# トピック設定
+topics:
+  input_topic: "/lidar/points"     # tcpreplayからの入力トピック
+  output_topic: "/benchmark/points" # ベンチマーク用中間トピック
+
+# その他の設定...
+```
 
 ### Launch引数
-- `input_topic`: 入力点群トピック（デフォルト: `/lidar/points`）
-- `output_topic`: ベンチマーク用出力トピック（デフォルト: `/benchmark/points`）
-- `analysis_duration`: 分析時間（秒）（デフォルト: 60.0）
-- `enable_visualization`: 可視化の有効/無効（デフォルト: true）
-
-### ノードパラメータ
-各ノードの詳細パラメータはlaunchファイルを参照
+- `config_file`: 設定ファイルパス（デフォルト: パッケージ内のbenchmark_config.yaml）
+- `input_topic`: 入力点群トピック（config値を上書き）
+- `output_topic`: ベンチマーク用出力トピック（config値を上書き）
+- `analysis_duration`: 分析時間（秒）（config値を上書き）
+- `enable_visualization`: 可視化の有効/無効（config値を上書き）
 
 ## 出力
 
