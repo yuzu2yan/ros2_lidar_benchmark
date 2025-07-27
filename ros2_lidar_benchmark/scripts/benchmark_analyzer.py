@@ -54,6 +54,7 @@ class BenchmarkAnalyzer(Node):
         self.metrics_history = []
         self.system_history = []
         self.start_time = time.time()
+        self.analysis_completed = False  # Flag to prevent multiple analysis
         
         self.timer = self.create_timer(1.0, self.check_duration)
         
@@ -85,9 +86,9 @@ class BenchmarkAnalyzer(Node):
     
     def check_duration(self):
         elapsed = time.time() - self.start_time
-        if elapsed >= self.analysis_duration:
-            # Cancel the timer to prevent multiple calls
-            self.timer.cancel()
+        if elapsed >= self.analysis_duration and not self.analysis_completed:
+            # Set flag to prevent multiple analysis
+            self.analysis_completed = True
             
             self.get_logger().info('Analysis duration reached. Processing results...')
             
