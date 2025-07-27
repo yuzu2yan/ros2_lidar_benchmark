@@ -55,9 +55,9 @@ class GraphGenerator:
         # Save metadata
         metadata = {
             'timestamp': timestamp,
-            'analysis_duration': self.data['summary']['analysis_duration'],
-            'performance_rating': self.data['analysis']['performance_rating'],
-            'stability_rating': self.data['analysis']['stability_rating'],
+            'analysis_duration': self.data.get('duration_seconds', 0),
+            'performance_rating': self.data.get('summary', {}).get('performance_rating', 'N/A'),
+            'stability_rating': self.data.get('summary', {}).get('stability_rating', 'N/A'),
             'graph_count': len(os.listdir(output_path)) - 1  # Exclude metadata file
         }
         

@@ -242,6 +242,10 @@ class BenchmarkAnalyzer(Node):
                     
                     self.get_logger().info(f'Graph output directory: {graph_output_dir}')
                     
+                    # Create parent directory if it doesn't exist
+                    os.makedirs(graph_output_dir, exist_ok=True)
+                    self.get_logger().info(f'Ensured graph output directory exists')
+                    
                     # Generate graphs
                     self.get_logger().info('Starting graph generation...')
                     graph_gen = GraphGenerator(json_file, viz_data_file, graph_output_dir)

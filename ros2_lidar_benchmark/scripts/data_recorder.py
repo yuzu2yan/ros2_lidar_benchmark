@@ -102,7 +102,7 @@ class DataRecorder(Node):
                 try:
                     with open(data_file, 'w') as f:
                         json.dump(self.data, f, indent=2)
-                    self.get_logger().debug(f'Saved {len(self.data["timestamps"])} data points')
+                    self.get_logger().info(f'Saved {len(self.data["timestamps"])} data points to {data_file}')
                 except Exception as e:
                     self.get_logger().error(f'Failed to save data: {e}')
     
