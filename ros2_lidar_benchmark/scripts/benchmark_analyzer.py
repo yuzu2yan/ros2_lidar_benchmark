@@ -210,9 +210,15 @@ class BenchmarkAnalyzer(Node):
                     from graph_generator import GraphGenerator
                 
                 # Get graph output directory from config or parameter
-                graph_output_dir = './lidar_benchmark_graphs'
+                graph_output_dir = '/tmp/lidar_benchmark_graphs'  # Default to absolute path
                 if hasattr(self, 'config_data') and self.config_data:
                     graph_output_dir = self.config_data.get('benchmark', {}).get('graph_output_dir', graph_output_dir)
+                
+                # Ensure absolute path
+                if not os.path.isabs(graph_output_dir):
+                    graph_output_dir = os.path.abspath(graph_output_dir)
+                
+                self.get_logger().info(f'Graph output directory: {graph_output_dir}')
                 
                 # Generate graphs
                 graph_gen = GraphGenerator(json_file, viz_data_file, graph_output_dir)

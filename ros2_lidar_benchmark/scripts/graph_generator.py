@@ -58,6 +58,7 @@ class GraphGenerator:
             json.dump(metadata, f, indent=2)
         
         print(f"Generated {metadata['graph_count']} graphs")
+        print(f"Graphs location: {output_path}")
         return output_path
     
     def _generate_time_series_graphs(self, output_dir):
