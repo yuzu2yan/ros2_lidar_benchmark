@@ -37,10 +37,14 @@ class DataFlowChecker(Node):
         
         # Create subscriptions with different QoS profiles
         for i, qos in enumerate(qos_profiles):
+            # Create a unique callback for each subscription
+            def make_callback(idx):
+                return lambda msg: self.callback(msg, idx)
+            
             sub = self.create_subscription(
                 PointCloud2,
                 self.topic_name,
-                lambda msg, idx=i: self.callback(msg, idx),
+                make_callback(i),
                 qos
             )
             self.subscriptions.append(sub)
