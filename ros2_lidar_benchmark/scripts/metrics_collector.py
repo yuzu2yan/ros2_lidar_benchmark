@@ -5,6 +5,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from std_msgs.msg import Float64MultiArray
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 import numpy as np
 import collections
 import time
@@ -18,16 +19,31 @@ class MetricsCollector(Node):
         self.declare_parameter('topic_to_monitor', '/benchmark/points')
         self.declare_parameter('window_size', 100)
         self.declare_parameter('publish_rate', 1.0)
+        self.declare_parameter('use_best_effort_qos', True)
         
         self.topic = self.get_parameter('topic_to_monitor').value
         self.window_size = self.get_parameter('window_size').value
         self.publish_rate = self.get_parameter('publish_rate').value
+        use_best_effort = self.get_parameter('use_best_effort_qos').value
+        
+        # Configure QoS - matching the publisher
+        if use_best_effort:
+            qos_profile = QoSProfile(
+                depth=10,
+                reliability=ReliabilityPolicy.BEST_EFFORT,
+                history=HistoryPolicy.KEEP_LAST,
+                durability=DurabilityPolicy.VOLATILE
+            )
+            self.get_logger().info(f'Using BEST_EFFORT QoS for monitoring {self.topic}')
+        else:
+            qos_profile = QoSProfile(depth=10)
+            self.get_logger().info(f'Using default QoS for monitoring {self.topic}')
         
         self.subscription = self.create_subscription(
             PointCloud2,
             self.topic,
             self.message_callback,
-            10
+            qos_profile
         )
         
         self.metrics_pub = self.create_publisher(
