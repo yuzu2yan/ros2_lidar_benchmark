@@ -86,6 +86,9 @@ class BenchmarkAnalyzer(Node):
     def check_duration(self):
         elapsed = time.time() - self.start_time
         if elapsed >= self.analysis_duration:
+            # Cancel the timer to prevent multiple calls
+            self.timer.cancel()
+            
             self.get_logger().info('Analysis duration reached. Processing results...')
             
             # Analyze and save (this includes graph generation)
