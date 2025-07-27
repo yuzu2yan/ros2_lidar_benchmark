@@ -174,10 +174,22 @@ class BenchmarkAnalyzer(Node):
         
         # Generate Excel report as primary output
         try:
-            from excel_report_generator import ExcelReportGenerator
-            generator = ExcelReportGenerator(json_file, self.output_file)
-            excel_path = generator.generate()
-            self.get_logger().info(f'Excel report saved to: {excel_path}')
+            # Check if visualization data exists
+            viz_data_file = os.path.join(os.path.dirname(json_file), 'visualization_data.json')
+            
+            if os.path.exists(viz_data_file):
+                # Use the enhanced Excel generator with graphs
+                from excel_report_with_graphs import ExcelReportWithGraphs
+                generator = ExcelReportWithGraphs(json_file, viz_data_file)
+                generator.generate_excel_with_graphs(self.output_file)
+                excel_path = self.output_file
+                self.get_logger().info(f'Excel report with graphs saved to: {excel_path}')
+            else:
+                # Fall back to basic Excel generator
+                from excel_report_generator import ExcelReportGenerator
+                generator = ExcelReportGenerator(json_file, self.output_file)
+                excel_path = generator.generate()
+                self.get_logger().info(f'Excel report saved to: {excel_path}')
             
             # Remove temporary JSON file if Excel was successful
             if os.path.exists(excel_path):
