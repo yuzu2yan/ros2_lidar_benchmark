@@ -180,7 +180,18 @@ ros2 run ros2_lidar_benchmark excel_report_generator.py \
 ### No Point Cloud Data Received
 - Verify tcpreplay is running correctly
 - Check topic names: `ros2 topic list`
-- Monitor data flow: `ros2 topic hz /lidar/points`
+- Monitor data flow: `ros2 topic hz /vlp16/points_filtered`
+- If data is visible with `ros2 topic echo` but not in the benchmark:
+  - Run the diagnostic script: `python3 fix_data_reception.py`
+  - Try different RMW implementation:
+    ```bash
+    export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    ros2 launch ros2_lidar_benchmark benchmark.launch.py
+    ```
+  - Or use the RMW-aware launch file:
+    ```bash
+    ros2 launch ros2_lidar_benchmark benchmark_with_rmw.launch.py rmw_implementation:=rmw_cyclonedds_cpp
+    ```
 
 ### Visualization Not Showing
 - Check X11 forwarding for SSH connections
