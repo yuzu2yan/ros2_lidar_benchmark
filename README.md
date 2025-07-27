@@ -1,6 +1,6 @@
 # ROS 2 LiDAR Benchmark Package
 
-A comprehensive performance benchmarking tool for LiDAR data processing in ROS 2, designed for NVIDIA Jetson and other platforms.
+A comprehensive performance benchmarking tool for LiDAR data processing in ROS 2, designed for NVIDIA Jetson Orin Nano Super and other platforms. This package provides automated performance analysis with real-time visualization and detailed Excel reporting.
 
 ## Features
 
@@ -16,10 +16,11 @@ A comprehensive performance benchmarking tool for LiDAR data processing in ROS 2
   - NVIDIA Jetson temperature monitoring (7 thermal zones)
   
 - **Automated Analysis & Reporting**
-  - Real-time visualization dashboard (6 graphs)
-  - JSON format detailed reports
+  - Real-time visualization dashboard (optional, default OFF)
   - Excel reports with comprehensive analysis
+  - Separate graph folder with 10 different visualizations
   - Performance ratings and recommendations
+  - Automatic termination after analysis duration
 
 ## Requirements
 
@@ -49,8 +50,8 @@ cd ~/ros2_ws
 colcon build --packages-select ros2_lidar_benchmark
 source install/setup.bash
 
-# Or use the setup script
-./setup_benchmark.sh
+# Or use the setup script (if available)
+# ./setup_benchmark.sh
 ```
 
 ## Usage
@@ -64,14 +65,17 @@ sudo tcpreplay -i eth0 -l 0 lidar_data.pcap
 
 2. **Run the benchmark**:
 ```bash
-# Default configuration (60 seconds, with visualization)
+# Default configuration (5 minutes, no visualization)
 ros2 launch ros2_lidar_benchmark benchmark.launch.py
 
-# Headless mode (no visualization)
-ros2 launch ros2_lidar_benchmark benchmark_headless.launch.py
+# With visualization enabled
+ros2 launch ros2_lidar_benchmark benchmark.launch.py enable_visualization:=true
 
-# Custom duration
-ros2 launch ros2_lidar_benchmark benchmark.launch.py analysis_duration:=300.0
+# Custom duration (e.g., 2 minutes)
+ros2 launch ros2_lidar_benchmark benchmark.launch.py analysis_duration:=120.0
+
+# Using r2r_multi_lidar_filter (for Velodyne data)
+# First run the filter, then run the benchmark
 ```
 
 ### Configuration
@@ -81,11 +85,14 @@ The package uses a YAML configuration file for easy customization:
 ```yaml
 # config/benchmark_config.yaml
 benchmark:
-  analysis_duration: 60.0  # Measurement duration in seconds
+  analysis_duration: 300.0          # Measurement duration (default: 5 minutes)
+  enable_visualization: false       # Real-time visualization (default: OFF)
+  report_file: "/tmp/lidar_benchmark_report.xlsx"
+  graph_output_dir: "/tmp/lidar_benchmark_graphs"
   
 topics:
-  input_topic: "/lidar/points"      # Input topic from tcpreplay
-  output_topic: "/benchmark/points" # Internal benchmark topic
+  input_topic: "/vlp16/points_filtered"  # Input topic (e.g., from r2r_multi_lidar_filter)
+  output_topic: "/benchmark/points"      # Internal benchmark topic
 ```
 
 #### Using Custom Configuration
@@ -132,9 +139,17 @@ ros2 launch ros2_lidar_benchmark benchmark.launch.py \
    - Raw data sheet with complete JSON data
    - Automatically generated after benchmark completion
 
-2. **Visualization Plots** (`/tmp/lidar_benchmark/`)
-   - PNG images of performance graphs
-   - Saved when visualization is enabled
+2. **Graph Folder** (`/tmp/lidar_benchmark_graphs/benchmark_YYYYMMDD_HHMMSS/`)
+   - 10 different PNG graphs:
+     - Frequency over time
+     - Jitter analysis
+     - Bandwidth usage
+     - System resources
+     - Temperature monitoring
+     - Throughput metrics
+     - Distribution histograms
+     - Combined overview
+   - Metadata.json with graph generation details
 
 ## Running Individual Nodes
 
@@ -153,10 +168,6 @@ ros2 run ros2_lidar_benchmark visualizer.py
 
 # Analyzer (runs for specified duration)
 ros2 run ros2_lidar_benchmark benchmark_analyzer.py
-
-# Generate Excel from existing JSON
-ros2 run ros2_lidar_benchmark excel_report_generator.py \
-  --json-file /tmp/lidar_benchmark_report.json
 ```
 
 ## Performance Targets
@@ -181,24 +192,38 @@ ros2 run ros2_lidar_benchmark excel_report_generator.py \
 - Verify tcpreplay is running correctly
 - Check topic names: `ros2 topic list`
 - Monitor data flow: `ros2 topic hz /vlp16/points_filtered`
-- If data is visible with `ros2 topic echo` but not in the benchmark:
-  - Run the diagnostic script: `python3 fix_data_reception.py`
-  - Try different RMW implementation:
-    ```bash
-    export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-    ros2 launch ros2_lidar_benchmark benchmark.launch.py
-    ```
-  - Or use the RMW-aware launch file:
-    ```bash
-    ros2 launch ros2_lidar_benchmark benchmark_with_rmw.launch.py rmw_implementation:=rmw_cyclonedds_cpp
-    ```
+- If using r2r_multi_lidar_filter, ensure it's running and publishing data
+- Check QoS settings - the package uses sensor_data QoS profile (BEST_EFFORT reliability)
 
 ### Visualization Not Showing
+- Visualization is OFF by default - enable with `enable_visualization:=true`
 - Check X11 forwarding for SSH connections
 - Verify DISPLAY environment variable
-- Use headless mode for remote systems
+- Graphs are always saved to folder regardless of visualization setting
 
 ### High Resource Usage
 - Reduce `window_size` parameter in config
 - Decrease `analysis_duration`
-- Use headless mode to save resources
+- Keep visualization disabled (default) to save resources
+
+### Excel Report Issues
+- Ensure pandas and openpyxl are installed: `pip3 install pandas openpyxl`
+- Check write permissions for output directory
+- Report is generated automatically after analysis completes
+
+## Example Workflow with r2r_multi_lidar_filter
+
+```bash
+# Terminal 1: Run tcpreplay
+sudo tcpreplay -i eth0 -l 0 velodyne_data.pcap
+
+# Terminal 2: Run the filter
+ros2 run r2r_multi_lidar_filter r2r_multi_lidar_filter
+
+# Terminal 3: Run the benchmark (5 minutes)
+ros2 launch ros2_lidar_benchmark benchmark.launch.py
+
+# Results will be in:
+# - Excel: /tmp/lidar_benchmark_report.xlsx
+# - Graphs: /tmp/lidar_benchmark_graphs/benchmark_*/
+```
