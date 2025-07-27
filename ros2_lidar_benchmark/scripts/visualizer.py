@@ -56,6 +56,9 @@ class BenchmarkVisualizer(Node):
         
         self.get_logger().info('Benchmark Visualizer started')
         
+        # Debug timer
+        self.debug_timer = self.create_timer(10.0, self.debug_callback)
+        
     def metrics_callback(self, msg):
         with self.data_lock:
             current_time = time.time() - self.start_time
@@ -207,6 +210,12 @@ class BenchmarkVisualizer(Node):
             filename = os.path.join(self.output_dir, f'benchmark_{timestamp}.png')
             self.fig.savefig(filename, dpi=150, bbox_inches='tight')
             self.get_logger().info(f'Saved plot to {filename}')
+    
+    def debug_callback(self):
+        with self.data_lock:
+            if len(self.timestamps) == 0:
+                self.get_logger().warning('No data received for visualization')
+                self.get_logger().warning('Waiting for metrics data on /benchmark/metrics and /benchmark/system_resources')
 
 
 def main(args=None):

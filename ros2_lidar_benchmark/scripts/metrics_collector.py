@@ -63,6 +63,9 @@ class MetricsCollector(Node):
         
         self.get_logger().info(f'Metrics Collector started for topic: {self.topic}')
         
+        # Debug timer
+        self.debug_timer = self.create_timer(5.0, self.debug_callback)
+        
     def message_callback(self, msg):
         current_time = time.time()
         self.timestamps.append(current_time)
@@ -193,6 +196,11 @@ class MetricsCollector(Node):
             f"BW: {metrics.get('bandwidth_mbps', 0):.2f}Mbps, "
             f"Throughput: {metrics.get('kpoints_per_second', 0):.1f}K pts/s"
         )
+    
+    def debug_callback(self):
+        if self.total_messages == 0:
+            self.get_logger().warning(f'No messages received on {self.topic}')
+            self.get_logger().warning('Waiting for point cloud data...')
 
 
 def main(args=None):
