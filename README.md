@@ -70,9 +70,6 @@ ros2 launch ros2_lidar_benchmark benchmark.launch.py enable_visualization:=true
 
 # Custom duration (e.g., 2 minutes)
 ros2 launch ros2_lidar_benchmark benchmark.launch.py analysis_duration:=120.0
-
-# Using r2r_multi_lidar_filter (for Velodyne data)
-# First run the filter, then run the benchmark
 ```
 
 ### Configuration
@@ -189,7 +186,6 @@ ros2 run ros2_lidar_benchmark benchmark_analyzer.py
 - Verify tcpreplay is running correctly
 - Check topic names: `ros2 topic list`
 - Monitor data flow: `ros2 topic hz /vlp16/points_filtered`
-- If using r2r_multi_lidar_filter, ensure it's running and publishing data
 - Check QoS settings - the package uses sensor_data QoS profile (BEST_EFFORT reliability)
 
 ### Visualization Not Showing
@@ -207,20 +203,3 @@ ros2 run ros2_lidar_benchmark benchmark_analyzer.py
 - Ensure pandas and openpyxl are installed: `pip3 install pandas openpyxl`
 - Check write permissions for output directory
 - Report is generated automatically after analysis completes
-
-## Example Workflow with r2r_multi_lidar_filter
-
-```bash
-# Terminal 1: Run tcpreplay
-sudo tcpreplay -i eth0 -l 0 velodyne_data.pcap
-
-# Terminal 2: Run the filter
-ros2 run r2r_multi_lidar_filter r2r_multi_lidar_filter
-
-# Terminal 3: Run the benchmark (5 minutes)
-ros2 launch ros2_lidar_benchmark benchmark.launch.py
-
-# Results will be in:
-# - Excel: /tmp/lidar_benchmark_report.xlsx
-# - Graphs: /tmp/lidar_benchmark_graphs/benchmark_*/
-```
