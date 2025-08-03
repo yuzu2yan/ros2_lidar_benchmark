@@ -58,10 +58,7 @@ source install/setup.bash
 
 ### Quick Start
 
-1. **Start tcpreplay** (in a separate terminal):
-```bash
-sudo tcpreplay -i eth0 -l 0 lidar_data.pcap
-```
+1. **Output point cloud data as ROS2 topics** (in a separate terminal):
 
 2. **Run the benchmark**:
 ```bash
