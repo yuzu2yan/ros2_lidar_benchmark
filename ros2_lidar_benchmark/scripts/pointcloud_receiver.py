@@ -21,9 +21,14 @@ class PointCloudReceiver(Node):
         
         # Configure QoS for sensor data
         if use_best_effort:
-            # Use the standard sensor data QoS profile
-            qos_profile = qos_profile_sensor_data
-            self.get_logger().info('Using SENSOR_DATA QoS profile (best for LiDAR data)')
+            # Use sensor data QoS profile with depth=1 to match publisher
+            qos_profile = QoSProfile(
+                reliability=ReliabilityPolicy.BEST_EFFORT,
+                durability=DurabilityPolicy.VOLATILE,
+                history=HistoryPolicy.KEEP_LAST,
+                depth=1
+            )
+            self.get_logger().info('Using BEST_EFFORT QoS with depth=1 (matching publisher)')
         else:
             qos_profile = QoSProfile(depth=10)
             self.get_logger().info('Using default QoS')
