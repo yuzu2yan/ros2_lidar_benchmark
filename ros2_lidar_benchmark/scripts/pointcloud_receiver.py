@@ -3,8 +3,10 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
+from std_msgs.msg import Empty
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy, qos_profile_sensor_data
 import time
+import threading
 
 
 class PointCloudReceiver(Node):
@@ -56,6 +58,15 @@ class PointCloudReceiver(Node):
         # Debug timer to check subscription status
         self.debug_timer = self.create_timer(5.0, self.debug_callback)
         
+        # Shutdown handling
+        self.should_shutdown = False
+        self.shutdown_sub = self.create_subscription(
+            Empty,
+            '/benchmark/shutdown',
+            self.shutdown_callback,
+            10
+        )
+        
     def pointcloud_callback(self, msg):
         current_time = time.time()
         
@@ -105,6 +116,16 @@ class PointCloudReceiver(Node):
             self.get_logger().warning('1. The filter launch file is running')
             self.get_logger().warning('2. The topic name in benchmark_config.yaml is correct')
             self.get_logger().warning(f'3. Run: ros2 topic hz {input_topic}')
+    
+    def shutdown_callback(self, msg):
+        """Handle shutdown signal"""
+        self.get_logger().info('Received shutdown signal, stopping...')
+        self.should_shutdown = True
+        # Cancel timers
+        if hasattr(self, 'debug_timer'):
+            self.debug_timer.cancel()
+        # Exit spin
+        rclpy.shutdown()
 
 
 def main(args=None):

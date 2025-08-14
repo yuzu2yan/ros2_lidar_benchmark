@@ -3,7 +3,7 @@
 import rclpy
 from rclpy.node import Node
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64MultiArray, Empty
 import psutil
 import threading
 import time
@@ -49,6 +49,15 @@ class SystemMonitor(Node):
         self.is_jetson = self.detect_jetson()
         if self.is_jetson:
             self.get_logger().info('Jetson platform detected - temperature monitoring enabled')
+        
+        # Shutdown handling
+        self.should_shutdown = False
+        self.shutdown_sub = self.create_subscription(
+            Empty,
+            '/benchmark/shutdown',
+            self.shutdown_callback,
+            10
+        )
     
     def detect_jetson(self):
         """Detect if running on NVIDIA Jetson platform"""
@@ -213,6 +222,16 @@ class SystemMonitor(Node):
             f"Memory: {metrics['memory_percent']:.1f}%, "
             f"Temp: {metrics.get('cpu_temp_c', 0):.1f}°C"
         )
+    
+    def shutdown_callback(self, msg):
+        """Handle shutdown signal"""
+        self.get_logger().info('Received shutdown signal, stopping...')
+        self.should_shutdown = True
+        # Cancel timer
+        if hasattr(self, 'timer'):
+            self.timer.cancel()
+        # Exit spin
+        rclpy.shutdown()
 
 
 def main(args=None):

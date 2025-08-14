@@ -60,7 +60,23 @@ source install/setup.bash
 
 1. **Output point cloud data as ROS2 topics** (in a separate terminal):
 
-2. **Run the benchmark**:
+2. **Check for any running benchmark nodes from previous sessions**:
+```bash
+# Check if any benchmark nodes are still running
+ros2 node list | grep -E "(pointcloud_receiver|metrics_collector|system_monitor|benchmark)"
+
+# If nodes are found, clean them up before starting
+pkill -f pointcloud_receiver
+pkill -f metrics_collector
+pkill -f system_monitor
+pkill -f benchmark_analyzer
+
+# Or restart the ROS2 daemon
+ros2 daemon stop
+ros2 daemon start
+```
+
+3. **Run the benchmark**:
 ```bash
 # Default configuration (5 minutes, no visualization)
 ros2 launch ros2_lidar_benchmark benchmark.launch.py
@@ -179,6 +195,38 @@ ros2 run ros2_lidar_benchmark benchmark_analyzer.py
 - CPU Usage: > 80%
 - Temperature: > 80°C
 - Throughput: < 50% of expected
+
+## Troubleshooting
+
+### Node Cleanup Issues
+
+If you experience increasing Hz rates or duplicate messages between runs:
+
+1. **Check for leftover nodes:**
+```bash
+ros2 node list | grep -E "(pointcloud_receiver|metrics_collector|system_monitor|benchmark)"
+```
+
+2. **Clean up any remaining nodes:**
+```bash
+# Kill specific benchmark nodes
+pkill -f pointcloud_receiver
+pkill -f metrics_collector  
+pkill -f system_monitor
+pkill -f benchmark_analyzer
+
+# Or restart ROS2 daemon completely
+ros2 daemon stop
+ros2 daemon start
+```
+
+3. **Verify cleanup:**
+```bash
+# Should show no benchmark-related nodes
+ros2 node list
+```
+
+**Note:** The benchmark now includes automatic shutdown signals to all nodes when analysis completes, but manual cleanup may still be needed if the launch is interrupted (Ctrl+C) or encounters errors.
 
 ## Troubleshooting
 

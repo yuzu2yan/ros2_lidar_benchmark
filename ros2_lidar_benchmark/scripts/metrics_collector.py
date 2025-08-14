@@ -4,7 +4,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64MultiArray, Empty
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 import numpy as np
 import collections
@@ -78,6 +78,15 @@ class MetricsCollector(Node):
         
         # Debug timer
         self.debug_timer = self.create_timer(5.0, self.debug_callback)
+        
+        # Shutdown handling
+        self.should_shutdown = False
+        self.shutdown_sub = self.create_subscription(
+            Empty,
+            '/benchmark/shutdown',
+            self.shutdown_callback,
+            10
+        )
         
     def message_callback(self, msg):
         current_time = time.time()
@@ -215,6 +224,18 @@ class MetricsCollector(Node):
         if self.total_messages == 0:
             self.get_logger().warning(f'No messages received on {self.topic}')
             self.get_logger().warning('Waiting for point cloud data...')
+    
+    def shutdown_callback(self, msg):
+        """Handle shutdown signal"""
+        self.get_logger().info('Received shutdown signal, stopping...')
+        self.should_shutdown = True
+        # Cancel timers
+        if hasattr(self, 'debug_timer'):
+            self.debug_timer.cancel()
+        if hasattr(self, 'timer'):
+            self.timer.cancel()
+        # Exit spin
+        rclpy.shutdown()
 
 
 def main(args=None):
