@@ -121,11 +121,8 @@ class PointCloudReceiver(Node):
         """Handle shutdown signal"""
         self.get_logger().info('Received shutdown signal, stopping...')
         self.should_shutdown = True
-        # Cancel timers
-        if hasattr(self, 'debug_timer'):
-            self.debug_timer.cancel()
-        # Exit spin
-        rclpy.shutdown()
+        # Set flag to exit main loop
+        raise SystemExit
 
 
 def main(args=None):
@@ -135,9 +132,10 @@ def main(args=None):
     
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         pass
     finally:
+        node.get_logger().info('Shutting down pointcloud_receiver...')
         node.destroy_node()
         rclpy.shutdown()
 

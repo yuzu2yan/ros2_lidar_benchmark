@@ -320,6 +320,9 @@ class BenchmarkVisualizer(Node):
         # Close matplotlib window
         if self.plot_initialized:
             plt.close('all')
+        
+        # Exit the node
+        raise SystemExit
 
 
 def main(args=None):
@@ -349,10 +352,14 @@ def main(args=None):
     
     try:
         # Keep matplotlib event loop running
-        plt.show(block=True)
-    except KeyboardInterrupt:
+        while not node.should_close:
+            plt.pause(0.1)
+            if not plt.get_fignums():  # All figures closed
+                break
+    except (KeyboardInterrupt, SystemExit):
         pass
     finally:
+        node.get_logger().info('Shutting down visualizer...')
         node.save_plots_to_file()
         node.destroy_node()
         rclpy.shutdown()

@@ -105,13 +105,12 @@ class BenchmarkAnalyzer(Node):
             shutdown_msg = Empty()
             self.shutdown_pub.publish(shutdown_msg)
             
-            # Wait a bit for other nodes to clean up
-            time.sleep(2.0)
+            # Wait longer for other nodes to clean up properly
+            self.get_logger().info('Waiting for other nodes to shutdown...')
+            time.sleep(5.0)
             
-            # Shutdown all nodes
-            import os
-            import signal
-            os.kill(os.getppid(), signal.SIGTERM)  # Send termination signal to parent process
+            # Exit this node
+            raise SystemExit
     
     def analyze_and_save(self):
         if self.metrics_history:
@@ -385,10 +384,11 @@ def main(args=None):
     
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         pass
     finally:
         if node:
+            node.get_logger().info('Shutting down benchmark_analyzer...')
             node.destroy_node()
         rclpy.shutdown()
 

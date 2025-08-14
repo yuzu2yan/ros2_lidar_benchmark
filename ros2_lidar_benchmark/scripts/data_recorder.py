@@ -111,6 +111,8 @@ class DataRecorder(Node):
         self.get_logger().info('Received shutdown signal, saving final data...')
         self.save_data()
         self.get_logger().info('Data recording complete')
+        # Set flag to exit main loop
+        raise SystemExit
 
 
 def main(args=None):
@@ -120,10 +122,10 @@ def main(args=None):
     
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         pass
     finally:
-        node.save_data()
+        node.get_logger().info('Shutting down data_recorder...')
         node.destroy_node()
         rclpy.shutdown()
 
