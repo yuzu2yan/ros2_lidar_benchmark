@@ -12,8 +12,9 @@ fi
 echo "Detected ROS 2 $ROS_DISTRO"
 
 # Install Python dependencies
-echo "Installing Python dependencies..."
-pip3 install psutil matplotlib numpy pandas openpyxl
+echo "Installing Python dependencies (pinning numpy==1.26.*)..."
+pip3 install --upgrade 'numpy==1.26.*'
+pip3 install psutil matplotlib pandas openpyxl
 
 # Make scripts executable
 echo "Making scripts executable..."

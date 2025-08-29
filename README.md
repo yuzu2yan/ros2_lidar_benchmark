@@ -29,7 +29,7 @@ A comprehensive performance benchmarking tool for LiDAR data processing in ROS 2
 - Python packages:
   - psutil
   - matplotlib
-  - numpy
+  - numpy (Pinned: 1.26.x)
   - pandas
   - openpyxl
 
@@ -42,7 +42,8 @@ git clone <repository-url>
 
 # Install dependencies
 sudo apt update
-sudo apt install python3-psutil python3-matplotlib python3-numpy
+sudo apt install python3-psutil python3-matplotlib
+pip3 install --upgrade 'numpy==1.26.*'
 pip3 install pandas openpyxl
 
 # Build the package
@@ -50,7 +51,7 @@ cd ~/ros2_ws
 colcon build --packages-select ros2_lidar_benchmark
 source install/setup.bash
 
-# Or use the setup script (if available)
+# Or use the setup script (pins numpy==1.26.*)
 # ./setup_benchmark.sh
 ```
 

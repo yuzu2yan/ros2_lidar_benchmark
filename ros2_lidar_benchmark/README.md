@@ -23,7 +23,7 @@ Jetson Orin Nano SuperでLiDARデータのパフォーマンスを自動計測�
 - 必要なPythonパッケージ:
   - psutil
   - matplotlib
-  - numpy
+  - numpy (Pinned: 1.26.x)
   - pandas
   - openpyxl
 
@@ -37,7 +37,8 @@ cd ~/ros2_ws
 
 # 依存関係のインストール
 sudo apt update
-sudo apt install python3-psutil python3-matplotlib python3-numpy
+sudo apt install python3-psutil python3-matplotlib
+pip3 install --upgrade 'numpy==1.26.*'
 pip3 install pandas openpyxl
 
 # ビルド
