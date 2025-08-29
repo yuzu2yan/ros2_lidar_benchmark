@@ -97,7 +97,7 @@ class BenchmarkAnalyzer(Node):
             
             # Wait for file I/O to complete
             self.get_logger().info('Waiting for file operations to complete...')
-            time.sleep(3.0)
+            time.sleep(5.0)  # Increased from 3.0 to allow graph generation
             
             self.get_logger().info('Analysis complete. Shutting down...')
             
@@ -106,8 +106,8 @@ class BenchmarkAnalyzer(Node):
             self.shutdown_pub.publish(shutdown_msg)
             
             # Wait longer for other nodes to clean up properly
-            self.get_logger().info('Waiting for other nodes to shutdown...')
-            time.sleep(5.0)
+            self.get_logger().info('Waiting for other nodes to shutdown and save images...')
+            time.sleep(10.0)  # Increased from 5.0 to ensure visualizer saves images
             
             # Exit this node
             raise SystemExit
