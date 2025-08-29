@@ -90,23 +90,14 @@ class BenchmarkAnalyzer(Node):
             # Set flag to prevent multiple analysis
             self.analysis_completed = True
             
-            self.get_logger().info('Analysis duration reached. Processing results...')
+            self.get_logger().info('Analysis duration reached. Initiating shutdown sequence...')
             
-            # Analyze and save (this includes graph generation)
-            self.analyze_and_save()
-            
-            # Wait for file I/O to complete
-            self.get_logger().info('Waiting for file operations to complete...')
-            time.sleep(8.0)  # Increased wait time for graph generation
-            
-            self.get_logger().info('Analysis complete. Shutting down...')
-            
-            # Send shutdown signal to other nodes
+            # Send shutdown signal to other nodes first (so visualizer saves data)
             shutdown_msg = Empty()
             self.shutdown_pub.publish(shutdown_msg)
             
-            # Wait for visualizer to save images
-            self.get_logger().info('Waiting for visualizer to save images...')
+            # Wait for visualizer to save images/data
+            self.get_logger().info('Waiting for visualizer to save images/data...')
             
             # Check for visualization data file periodically
             viz_data_file = os.path.join(self.viz_output_dir, 'visualization_data.json')
@@ -128,8 +119,9 @@ class BenchmarkAnalyzer(Node):
                 if int(elapsed_time) % 2 == 0:  # Log every 2 seconds
                     self.get_logger().info(f'Still waiting for visualization data... ({elapsed_time:.0f}s)')
             
-            # Final wait to ensure all file operations complete
-            time.sleep(2.0)
+            # Now analyze and save (this will also generate graphs if viz data exists)
+            self.get_logger().info('Processing results and generating report/graphs...')
+            self.analyze_and_save()
             
             # Exit this node
             raise SystemExit
@@ -239,50 +231,48 @@ class BenchmarkAnalyzer(Node):
             viz_data_file = os.path.join(self.viz_output_dir, 'visualization_data.json')
             self.get_logger().info(f'Looking for visualization data at: {viz_data_file}')
             
-            if os.path.exists(viz_data_file):
-                self.get_logger().info(f'Found visualization data: {viz_data_file}')
-                # Generate graphs to folder
+            # Generate graphs (time-series only if viz data exists)
+            try:
                 try:
-                    try:
-                        from graph_generator import GraphGenerator
-                    except ImportError:
-                        # Try with full path import
-                        import sys
-                        script_dir = os.path.dirname(os.path.abspath(__file__))
-                        sys.path.insert(0, script_dir)
-                        from graph_generator import GraphGenerator
-                    
-                    # Get graph output directory from config or parameter
-                    graph_output_dir = '/tmp/lidar_benchmark_graphs'  # Default to absolute path
-                    if hasattr(self, 'config_data') and self.config_data:
-                        graph_output_dir = self.config_data.get('benchmark', {}).get('graph_output_dir', graph_output_dir)
-                    
-                    # Ensure absolute path
-                    if not os.path.isabs(graph_output_dir):
-                        graph_output_dir = os.path.abspath(graph_output_dir)
-                    
-                    self.get_logger().info(f'Graph output directory: {graph_output_dir}')
-                    
-                    # Create parent directory if it doesn't exist
-                    os.makedirs(graph_output_dir, exist_ok=True)
-                    self.get_logger().info(f'Ensured graph output directory exists')
-                    
-                    # Generate graphs
-                    self.get_logger().info('Starting graph generation...')
-                    self.get_logger().info(f'JSON file: {json_file} (exists: {os.path.exists(json_file)})')
-                    self.get_logger().info(f'Viz data file: {viz_data_file} (exists: {os.path.exists(viz_data_file)})')
-                    self.get_logger().info(f'Graph output dir: {graph_output_dir}')
-                    
-                    graph_gen = GraphGenerator(json_file, viz_data_file, graph_output_dir)
-                    graph_path = graph_gen.generate_all_graphs()
-                    self.get_logger().info(f'Graphs successfully saved to: {graph_path}')
-                    
-                except Exception as e:
-                    self.get_logger().error(f'Failed to generate graphs: {str(e)}')
-                    import traceback
-                    self.get_logger().error(traceback.format_exc())
-            else:
-                self.get_logger().warning(f'Visualization data not found: {viz_data_file}')
+                    from graph_generator import GraphGenerator
+                except ImportError:
+                    # Try with full path import
+                    import sys
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    sys.path.insert(0, script_dir)
+                    from graph_generator import GraphGenerator
+
+                # Determine graph output directory
+                graph_output_dir = '/tmp/lidar_benchmark_graphs'  # Default
+                if hasattr(self, 'config_data') and self.config_data:
+                    graph_output_dir = self.config_data.get('benchmark', {}).get('graph_output_dir', graph_output_dir)
+
+                if not os.path.isabs(graph_output_dir):
+                    graph_output_dir = os.path.abspath(graph_output_dir)
+
+                self.get_logger().info(f'Graph output directory: {graph_output_dir}')
+
+                os.makedirs(graph_output_dir, exist_ok=True)
+                self.get_logger().info('Ensured graph output directory exists')
+
+                viz_for_graphs = viz_data_file if os.path.exists(viz_data_file) else None
+                if viz_for_graphs is None:
+                    self.get_logger().warning(f'Visualization data not found at {viz_data_file}. Generating summary graphs only.')
+
+                # Generate graphs
+                self.get_logger().info('Starting graph generation...')
+                self.get_logger().info(f'JSON file: {json_file} (exists: {os.path.exists(json_file)})')
+                self.get_logger().info(f'Viz data file: {viz_data_file} (exists: {os.path.exists(viz_data_file)})')
+                self.get_logger().info(f'Graph output dir: {graph_output_dir}')
+
+                graph_gen = GraphGenerator(json_file, viz_for_graphs, graph_output_dir)
+                graph_path = graph_gen.generate_all_graphs()
+                self.get_logger().info(f'Graphs successfully saved to: {graph_path}')
+
+            except Exception as e:
+                self.get_logger().error(f'Failed to generate graphs: {str(e)}')
+                import traceback
+                self.get_logger().error(traceback.format_exc())
             
             # Always generate Excel report (without images)
             try:

@@ -93,7 +93,7 @@ class BenchmarkVisualizer(Node):
         
         # Subscriber to shutdown event
         self.create_subscription(
-            std_msgs.msg.Empty,
+            Empty,
             '/benchmark/shutdown',
             self.shutdown_callback,
             10
