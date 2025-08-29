@@ -315,14 +315,17 @@ class BenchmarkVisualizer(Node):
         self.should_close = True
         
         # Save plots before closing
-        self.save_plots_to_file()
+        try:
+            self.save_plots_to_file()
+            self.get_logger().info('Successfully saved plots before shutdown')
+        except Exception as e:
+            self.get_logger().error(f'Error saving plots: {str(e)}')
         
         # Close matplotlib window
         if self.plot_initialized:
             plt.close('all')
         
-        # Exit the node
-        raise SystemExit
+        # Don't raise SystemExit immediately - let the main loop handle it
 
 
 def main(args=None):

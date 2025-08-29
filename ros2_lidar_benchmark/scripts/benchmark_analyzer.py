@@ -97,7 +97,7 @@ class BenchmarkAnalyzer(Node):
             
             # Wait for file I/O to complete
             self.get_logger().info('Waiting for file operations to complete...')
-            time.sleep(5.0)  # Increased from 3.0 to allow graph generation
+            time.sleep(5.0)  # Allow graph generation to complete
             
             self.get_logger().info('Analysis complete. Shutting down...')
             
@@ -105,9 +105,31 @@ class BenchmarkAnalyzer(Node):
             shutdown_msg = Empty()
             self.shutdown_pub.publish(shutdown_msg)
             
-            # Wait longer for other nodes to clean up properly
-            self.get_logger().info('Waiting for other nodes to shutdown and save images...')
-            time.sleep(10.0)  # Increased from 5.0 to ensure visualizer saves images
+            # Wait for visualizer to save images
+            self.get_logger().info('Waiting for visualizer to save images...')
+            
+            # Check for visualization data file periodically
+            viz_data_file = os.path.join(self.viz_output_dir, 'visualization_data.json')
+            max_wait_time = 15.0  # Maximum wait time in seconds
+            wait_interval = 0.5
+            elapsed_time = 0.0
+            
+            while elapsed_time < max_wait_time:
+                time.sleep(wait_interval)
+                elapsed_time += wait_interval
+                
+                # Check if visualization data was saved
+                if os.path.exists(viz_data_file):
+                    # Check file size to ensure it's not empty
+                    if os.path.getsize(viz_data_file) > 100:  # At least 100 bytes
+                        self.get_logger().info(f'Visualization data saved successfully after {elapsed_time:.1f} seconds')
+                        break
+                
+                if int(elapsed_time) % 2 == 0:  # Log every 2 seconds
+                    self.get_logger().info(f'Still waiting for visualization data... ({elapsed_time:.0f}s)')
+            
+            # Final wait to ensure all file operations complete
+            time.sleep(2.0)
             
             # Exit this node
             raise SystemExit

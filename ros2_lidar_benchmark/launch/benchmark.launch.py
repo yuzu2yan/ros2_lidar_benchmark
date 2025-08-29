@@ -138,7 +138,7 @@ def generate_launch_description():
             'config_file': LaunchConfiguration('config_file')
         }],
         output='screen',
-        on_exit=Shutdown()  # Shutdown entire launch when analyzer exits
+        on_exit=[Shutdown(reason='Benchmark analysis completed')]  # Shutdown entire launch when analyzer exits
     )
     
     return LaunchDescription([
