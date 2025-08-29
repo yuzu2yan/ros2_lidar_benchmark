@@ -97,7 +97,7 @@ class BenchmarkAnalyzer(Node):
             
             # Wait for file I/O to complete
             self.get_logger().info('Waiting for file operations to complete...')
-            time.sleep(5.0)  # Allow graph generation to complete
+            time.sleep(8.0)  # Increased wait time for graph generation
             
             self.get_logger().info('Analysis complete. Shutting down...')
             
@@ -269,6 +269,10 @@ class BenchmarkAnalyzer(Node):
                     
                     # Generate graphs
                     self.get_logger().info('Starting graph generation...')
+                    self.get_logger().info(f'JSON file: {json_file} (exists: {os.path.exists(json_file)})')
+                    self.get_logger().info(f'Viz data file: {viz_data_file} (exists: {os.path.exists(viz_data_file)})')
+                    self.get_logger().info(f'Graph output dir: {graph_output_dir}')
+                    
                     graph_gen = GraphGenerator(json_file, viz_data_file, graph_output_dir)
                     graph_path = graph_gen.generate_all_graphs()
                     self.get_logger().info(f'Graphs successfully saved to: {graph_path}')

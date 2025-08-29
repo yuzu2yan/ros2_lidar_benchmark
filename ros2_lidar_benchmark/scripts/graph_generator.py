@@ -240,13 +240,25 @@ class GraphGenerator:
         """Create performance overview bar chart"""
         plt.figure(figsize=(10, 8))
         
-        metrics = {
-            'Avg Hz': self.data['lidar_metrics']['average_hz'],
-            'Avg Jitter (ms)': self.data['lidar_metrics']['average_jitter_ms'],
-            'Avg BW (Mbps)': self.data['lidar_metrics']['average_bandwidth_mbps'],
-            'Total Messages (K)': self.data['lidar_metrics']['total_messages'] / 1000,
-            'Total Data (GB)': self.data['lidar_metrics']['total_mb'] / 1024
-        }
+        # Handle different key names for backward compatibility
+        metrics_data = self.data.get('metrics', {})
+        if not metrics_data:
+            print("Warning: No metrics data found in benchmark results")
+            plt.close()
+            return
+            
+        try:
+            metrics = {
+                'Avg Hz': metrics_data.get('frequency', {}).get('average_hz', 0),
+                'Avg Jitter (ms)': metrics_data.get('jitter', {}).get('average_ms', 0),
+                'Avg BW (Mbps)': metrics_data.get('bandwidth', {}).get('average_mbps', 0),
+                'Avg Throughput (Kpts/s)': metrics_data.get('throughput', {}).get('average_kpoints_per_sec', 0),
+                'Messages/sec': metrics_data.get('throughput', {}).get('average_messages_per_sec', 0)
+            }
+        except Exception as e:
+            print(f"Error extracting metrics: {e}")
+            plt.close()
+            return
         
         x = range(len(metrics))
         values = list(metrics.values())
@@ -276,8 +288,18 @@ class GraphGenerator:
         """Create resource usage pie chart"""
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 7))
         
+        # Handle different key names for backward compatibility
+        system_data = self.data.get('system_stats', self.data.get('system_resources', {}))
+        if not system_data:
+            print("Warning: No system resource data found")
+            plt.close()
+            return
+            
         # CPU Usage Distribution
-        cpu_avg = self.data['system_resources']['average_cpu_percent']
+        cpu_avg = system_data.get('cpu', {}).get('average_percent', 0)
+        if cpu_avg == 0:
+            cpu_avg = system_data.get('average_cpu_percent', 0)
+            
         cpu_data = [cpu_avg, 100 - cpu_avg]
         cpu_labels = ['Used', 'Available']
         colors1 = ['#ff9999', '#99ff99']
@@ -287,7 +309,10 @@ class GraphGenerator:
         ax1.set_title(f'Average CPU Usage\n({cpu_avg:.1f}%)', fontsize=16, fontweight='bold')
         
         # Memory Usage Distribution
-        mem_avg = self.data['system_resources']['average_memory_percent']
+        mem_avg = system_data.get('memory', {}).get('average_percent', 0)
+        if mem_avg == 0:
+            mem_avg = system_data.get('average_memory_percent', 0)
+            
         mem_data = [mem_avg, 100 - mem_avg]
         mem_labels = ['Used', 'Available']
         colors2 = ['#ffcc99', '#99ccff']
@@ -315,9 +340,15 @@ class GraphGenerator:
             'Poor': '#FF6B6B'
         }
         
-        # Get ratings
-        perf_rating = self.data['analysis']['performance_rating']
-        stab_rating = self.data['analysis']['stability_rating']
+        # Get ratings - handle different key names
+        summary_data = self.data.get('summary', self.data.get('analysis', {}))
+        if not summary_data:
+            print("Warning: No summary/analysis data found")
+            plt.close()
+            return
+            
+        perf_rating = summary_data.get('performance_rating', 'No data')
+        stab_rating = summary_data.get('stability_rating', 'No data')
         
         # Create bar chart
         categories = ['Performance', 'Stability']
