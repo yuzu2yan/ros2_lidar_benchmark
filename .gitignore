@@ -51,5 +51,6 @@ qtcreator-*
 CATKIN_IGNORE
 
 .claude/
+.DS_Store
 
 r2r*/

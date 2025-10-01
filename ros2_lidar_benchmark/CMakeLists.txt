@@ -31,6 +31,7 @@ install(PROGRAMS
   scripts/excel_report_generator.py
   scripts/graph_generator.py
   scripts/data_recorder.py
+  scripts/long_term_data_recorder.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

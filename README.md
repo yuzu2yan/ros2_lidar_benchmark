@@ -181,6 +181,48 @@ ros2 run ros2_lidar_benchmark visualizer.py
 ros2 run ros2_lidar_benchmark benchmark_analyzer.py
 ```
 
+### Long-term Recording (Daily Snapshots)
+
+- Record continuously for up to 14 days and save cumulative snapshots every 24 hours:
+
+```bash
+# Launch long-term recorder (14 days, daily checkpoints)
+ros2 launch ros2_lidar_benchmark long_term_record.launch.py \
+  duration_days:=14 \
+  checkpoint_interval_days:=1 \
+  output_dir:=/tmp/lidar_benchmark_longterm
+
+# You can override topics if needed
+ros2 launch ros2_lidar_benchmark long_term_record.launch.py \
+  input_topic:=/vlp16/points_filtered \
+  output_topic:=/benchmark/points
+```
+
+- Files:
+  - Current rolling data: `output_dir/visualization_data.json`
+  - Daily cumulative snapshots (Excel + images):
+    - Excel: `output_dir/daily_snapshots/snapshot_<start>_until_<now>_dayXX/report_<start>_until_<now>_dayXX.xlsx`
+    - Graphs: `output_dir/daily_snapshots/snapshot_<start>_until_<now>_dayXX/graphs/benchmark_<timestamp>/*.png`
+  - Final snapshot at the end of duration (Excel + images) saved similarly with `_final`
+
+#### Quick Test (5 minutes, every 1 minute)
+
+```bash
+# Run a short test: total 5 minutes, checkpoint every 60s (Excel + graphs saved per minute)
+ros2 launch ros2_lidar_benchmark long_term_record_test.launch.py \
+  output_dir:=/tmp/lidar_benchmark_longterm_test
+```
+
+- 同様に、トピックを変更する場合:
+
+```bash
+ros2 launch ros2_lidar_benchmark long_term_record_test.launch.py \
+  input_topic:=/vlp16/points_filtered \
+  output_topic:=/benchmark/points \
+  output_dir:=/tmp/lidar_benchmark_longterm_test
+```
+
+
 ## Performance Targets
 
 ### Good Performance
