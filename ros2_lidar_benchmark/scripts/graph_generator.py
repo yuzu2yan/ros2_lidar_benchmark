@@ -72,6 +72,9 @@ class GraphGenerator:
         """Generate time series graphs"""
         # Use a clean style
         plt.style.use('default')
+        # Enable path simplification to speed up rendering
+        matplotlib.rcParams['path.simplify'] = True
+        matplotlib.rcParams['path.simplify_threshold'] = 0.5
         
         # Common settings
         fig_size = (12, 8)
@@ -174,15 +177,49 @@ class GraphGenerator:
     def _create_time_series_plot(self, x_data, y_data, title, xlabel, ylabel, color, filename, ylim=None):
         """Create a single time series plot"""
         plt.figure(figsize=(12, 8))
-        
+
+        # Downsample if too many points to render efficiently
+        # Keeps local extrema within bins to preserve spikes/outliers
+        def _downsample_minmax(x, y, max_points=8000):
+            n = len(x)
+            if n <= max_points:
+                return x, y
+            # We will emit up to max_points by taking min/max per bin
+            # Each bin contributes up to 2 points (min and max)
+            bins = max(max_points // 2, 1)
+            # Compute bin edges in index space
+            idx = np.arange(n)
+            # Split indices into nearly equal bins
+            splits = np.array_split(idx, bins)
+            keep_indices = []
+            for s in splits:
+                if s.size == 0:
+                    continue
+                yseg = np.asarray(y)[s]
+                # argmin/argmax relative to segment
+                i_min = s[np.argmin(yseg)]
+                i_max = s[np.argmax(yseg)]
+                # Append in increasing index order to keep chronology
+                if i_min < i_max:
+                    keep_indices.extend([i_min, i_max])
+                elif i_max < i_min:
+                    keep_indices.extend([i_max, i_min])
+                else:
+                    keep_indices.append(i_min)
+            keep_indices = np.array(sorted(set(keep_indices)))
+            return np.asarray(x)[keep_indices].tolist(), np.asarray(y)[keep_indices].tolist()
+
+        x_plot, y_plot = _downsample_minmax(x_data, y_data)
+
         # Main plot
-        plt.plot(x_data, y_data, color=color, linewidth=2, alpha=0.8)
+        plt.plot(x_plot, y_plot, color=color, linewidth=1.8, alpha=0.85)
         
         # Calculate statistics
-        avg_val = np.mean(y_data)
-        std_val = np.std(y_data)
-        min_val = np.min(y_data)
-        max_val = np.max(y_data)
+        # Compute stats on full data to keep accuracy
+        avg_val = float(np.mean(y_data))
+        std_val = float(np.std(y_data))
+        min_val = float(np.min(y_data))
+        max_val = float(np.max(y_data))
         
         # Add average line
         plt.axhline(y=avg_val, color='red', linestyle='--', linewidth=2, 
@@ -196,7 +233,7 @@ class GraphGenerator:
         
         # Add shaded area for standard deviation
         if std_val > 0:
-            plt.fill_between(x_data, avg_val - std_val, avg_val + std_val, 
+            plt.fill_between(x_plot, avg_val - std_val, avg_val + std_val, 
                            alpha=0.2, color='gray', label=f'±1 STD: {std_val:.2f}')
         
         # Formatting
@@ -222,7 +259,8 @@ class GraphGenerator:
                          edgecolor='gray', alpha=0.8))
         
         plt.tight_layout()
-        plt.savefig(filename, dpi=300, bbox_inches='tight', facecolor='white')
+        # Use moderate DPI to avoid huge files with large data
+        plt.savefig(filename, dpi=200, bbox_inches='tight', facecolor='white')
         plt.close()
     
     def _generate_summary_graphs(self, output_dir):
