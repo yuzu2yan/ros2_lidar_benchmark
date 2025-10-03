@@ -35,6 +35,7 @@ def generate_launch_description():
 
     default_input_topic = config['topics']['input_topic']
     default_output_topic = config['topics']['output_topic']
+    default_use_best_effort = config['topics'].get('use_best_effort_qos', True)
 
     input_topic_arg = DeclareLaunchArgument(
         'input_topic',
@@ -64,6 +65,19 @@ def generate_launch_description():
         'output_dir',
         default_value='/tmp/lidar_benchmark_longterm',
         description='Base output directory for long-term recorder'
+    )
+
+    # Bridge input -> output like benchmark.launch.py
+    pointcloud_receiver_node = Node(
+        package='ros2_lidar_benchmark',
+        executable='pointcloud_receiver.py',
+        name='pointcloud_receiver',
+        parameters=[{
+            'input_topic': LaunchConfiguration('input_topic'),
+            'output_topic': LaunchConfiguration('output_topic'),
+            'use_best_effort_qos': default_use_best_effort,
+        }],
+        output='screen'
     )
 
     metrics_collector_node = Node(
@@ -110,8 +124,8 @@ def generate_launch_description():
         duration_days_arg,
         checkpoint_days_arg,
         output_dir_arg,
+        pointcloud_receiver_node,
         metrics_collector_node,
         system_monitor_node,
         long_term_recorder_node,
     ])
-
