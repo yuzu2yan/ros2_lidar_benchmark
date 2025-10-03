@@ -276,12 +276,15 @@ class LongTermDataRecorder(Node):
             if len(self.data['timestamps']) == 0:
                 return
 
-            tag = 'final' if final else f'day{day_index:02d}'
+            # Always use day folders, even for final checkpoint
+            tag = f'day{day_index:02d}'
             ts = datetime.now(timezone.utc).astimezone().strftime('%Y%m%d_%H%M%S')
 
-            # Create a dedicated snapshot directory
+            # Create Day folders for all checkpoints
+            day_dir = os.path.join(self.output_dir, f'Day{day_index}')
+            os.makedirs(day_dir, exist_ok=True)
             snapshot_dir_name = f'snapshot_{self.start_iso}_until_{ts}_{tag}'
-            snapshot_dir = os.path.join(self.snapshots_dir, snapshot_dir_name)
+            snapshot_dir = os.path.join(day_dir, snapshot_dir_name)
             os.makedirs(snapshot_dir, exist_ok=True)
 
             # Prepare report json for Excel/graphs
@@ -353,16 +356,20 @@ class LongTermDataRecorder(Node):
 
         # Finalization
         if elapsed >= self.total_duration_sec:
-            # Save final snapshot and stop
-            self.save_checkpoint(self.checkpoint_count, final=True)
+            # Save final checkpoint (no separate final folder)
+            self.save_checkpoint(self.checkpoint_count, final=False)
             self.get_logger().info('Target duration reached. Stopping long-term recorder.')
+            # Wait a bit for graph generation to complete
+            time.sleep(5.0)
             raise SystemExit
 
     def shutdown_callback(self, _msg: Empty):
         self.get_logger().info('Received shutdown signal. Saving final snapshot and exiting...')
         # Save final snapshot and exit
         try:
-            self.save_checkpoint(self.checkpoint_count, final=True)
+            self.save_checkpoint(self.checkpoint_count, final=False)
+            # Wait for graph generation to complete
+            time.sleep(5.0)
         finally:
             raise SystemExit
 
