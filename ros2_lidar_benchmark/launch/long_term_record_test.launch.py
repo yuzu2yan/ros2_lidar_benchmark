@@ -1,6 +1,6 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, TimerAction, Shutdown
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 import os
@@ -103,7 +103,15 @@ def generate_launch_description():
             'max_points': 0,
             'output_dir': LaunchConfiguration('output_dir'),
         }],
-        output='screen'
+        output='screen',
+        # When recorder finishes its 300s run, shutdown the entire launch
+        on_exit=Shutdown()
+    )
+
+    # Safety timer: force shutdown after duration + small buffer (300s + 5s)
+    shutdown_timer = TimerAction(
+        period=305.0,
+        actions=[Shutdown(reason='Long-term test timeout reached')]
     )
 
     return LaunchDescription([
@@ -115,4 +123,5 @@ def generate_launch_description():
         metrics_collector_node,
         system_monitor_node,
         long_term_recorder_node,
+        shutdown_timer,
     ])
