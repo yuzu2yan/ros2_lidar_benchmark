@@ -359,8 +359,9 @@ class LongTermDataRecorder(Node):
             # Save final checkpoint (no separate final folder)
             self.save_checkpoint(self.checkpoint_count, final=False)
             self.get_logger().info('Target duration reached. Stopping long-term recorder.')
-            # Wait a bit for graph generation to complete
-            time.sleep(5.0)
+            # Wait longer for graph generation to complete (especially for large datasets)
+            self.get_logger().info('Waiting for graph generation to complete...')
+            time.sleep(15.0)
             raise SystemExit
 
     def shutdown_callback(self, _msg: Empty):
@@ -369,7 +370,8 @@ class LongTermDataRecorder(Node):
         try:
             self.save_checkpoint(self.checkpoint_count, final=False)
             # Wait for graph generation to complete
-            time.sleep(5.0)
+            self.get_logger().info('Waiting for graph generation to complete...')
+            time.sleep(15.0)
         finally:
             raise SystemExit
 
