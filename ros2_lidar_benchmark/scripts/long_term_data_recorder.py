@@ -8,6 +8,7 @@ import os
 import time
 import threading
 from datetime import datetime, timezone
+import subprocess
 
 
 class LongTermDataRecorder(Node):
@@ -314,21 +315,36 @@ class LongTermDataRecorder(Node):
                 except Exception as e:
                     self.get_logger().error(f'Excel generation failed: {e}')
 
-                # Graphs generation
+                # Graphs generation - run as subprocess and wait for completion
                 try:
-                    try:
-                        from graph_generator import GraphGenerator
-                    except ImportError:
-                        import sys
-                        script_dir = os.path.dirname(os.path.abspath(__file__))
-                        sys.path.insert(0, script_dir)
-                        from graph_generator import GraphGenerator
-
                     graphs_base = os.path.join(snapshot_dir, 'graphs')
                     os.makedirs(graphs_base, exist_ok=True)
                     viz_file = os.path.join(self.output_dir, 'visualization_data.json')
-                    graph_gen = GraphGenerator(tmp_json, viz_file if os.path.exists(viz_file) else None, graphs_base)
-                    graph_gen.generate_all_graphs()
+                    
+                    # Run graph generator as subprocess
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    graph_script = os.path.join(script_dir, 'graph_generator.py')
+                    
+                    cmd = [
+                        'python3', graph_script,
+                        '--json-file', tmp_json,
+                        '--output-dir', graphs_base
+                    ]
+                    
+                    if os.path.exists(viz_file):
+                        cmd.extend(['--viz-data', viz_file])
+                    
+                    self.get_logger().info(f'Starting graph generation for {tag}...')
+                    
+                    # Run and wait for completion
+                    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    stdout, stderr = process.communicate()  # This blocks until process completes
+                    
+                    if process.returncode == 0:
+                        self.get_logger().info(f'Graph generation completed successfully for {tag}')
+                    else:
+                        self.get_logger().error(f'Graph generation failed with code {process.returncode}: {stderr.decode()}')
+                        
                 except Exception as e:
                     self.get_logger().error(f'Graph generation failed: {e}')
 
@@ -359,9 +375,7 @@ class LongTermDataRecorder(Node):
             # Save final checkpoint (no separate final folder)
             self.save_checkpoint(self.checkpoint_count, final=False)
             self.get_logger().info('Target duration reached. Stopping long-term recorder.')
-            # Wait longer for graph generation to complete (especially for large datasets)
-            self.get_logger().info('Waiting for graph generation to complete...')
-            time.sleep(15.0)
+            # No need to wait - subprocess.communicate() blocks until completion
             raise SystemExit
 
     def shutdown_callback(self, _msg: Empty):
@@ -369,9 +383,7 @@ class LongTermDataRecorder(Node):
         # Save final snapshot and exit
         try:
             self.save_checkpoint(self.checkpoint_count, final=False)
-            # Wait for graph generation to complete
-            self.get_logger().info('Waiting for graph generation to complete...')
-            time.sleep(15.0)
+            # No need to wait - subprocess.communicate() blocks until completion
         finally:
             raise SystemExit
 
