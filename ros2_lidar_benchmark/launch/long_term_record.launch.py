@@ -51,7 +51,7 @@ def generate_launch_description():
 
     duration_days_arg = DeclareLaunchArgument(
         'duration_days',
-        default_value='14',
+        default_value='15',
         description='Total recording duration in days'
     )
 
