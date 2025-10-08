@@ -1,0 +1,17 @@
+/var/log/ros2-lidar-bench/**/*.log {
+    daily                # Rotate daily
+    rotate 30            # Keep 30 generations (=30 days)
+    compress             # Compress the log file
+    delaycompress        # Delay compression until rotation
+    missingok            # Ignore missing log files
+    notifempty           # Do not notify if the log file is empty
+    dateext              # Add date to the end of the log file
+    dateformat -%Y%m%d   # Add date to the end of the log file
+    su ubuntu adm        # Match the user running the benchmark
+    create 0640 ubuntu adm # Create the log file with the correct permissions
+    sharedscripts        # Share the same scripts for all log files
+    copytruncate         # Safely switch while writing
+}
+
+# sudo logrotate -d /etc/logrotate.d/ros2-lidar-bench   # dry run
+# sudo logrotate -f /etc/logrotate.d/ros2-lidar-bench   # force execution (for initial check)
