@@ -11,8 +11,8 @@
     notifempty
     dateext
     dateformat -%Y%m%d
-    su ubuntu adm
-    create 0640 ubuntu adm
+    su edge_app adm
+    create 0640 edge_app adm
     sharedscripts
     copytruncate
 }
