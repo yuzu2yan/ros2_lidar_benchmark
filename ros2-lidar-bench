@@ -1,4 +1,4 @@
-/var/log/ros2-lidar-bench/**/*.log {
+/var/log/ros2-lidar-bench/*.log /var/log/ros2-lidar-bench/**/*.log {
     daily                # Rotate daily
     rotate 30            # Keep 30 generations (=30 days)
     compress             # Compress the log file
