@@ -48,7 +48,9 @@ class LongTermDataRecorder(Node):
             'throughput': [],
             'cpu': [],
             'memory': [],
-            'temperature': []
+            'temperature': [],
+            'top_processes_memory': [[] for _ in range(10)],  # Top 10 processes memory usage
+            'top_processes_cpu': [[] for _ in range(10)]  # Top 10 processes CPU usage
         }
 
         self.start_walltime = time.time()
@@ -107,6 +109,12 @@ class LongTermDataRecorder(Node):
                 if len(self.data[key]) > self.max_points:
                     # Keep the most recent max_points
                     self.data[key] = self.data[key][-self.max_points:]
+            # Trim top processes memory and CPU arrays
+            for i in range(10):
+                if len(self.data['top_processes_memory'][i]) > self.max_points:
+                    self.data['top_processes_memory'][i] = self.data['top_processes_memory'][i][-self.max_points:]
+                if len(self.data['top_processes_cpu'][i]) > self.max_points:
+                    self.data['top_processes_cpu'][i] = self.data['top_processes_cpu'][i][-self.max_points:]
 
     def metrics_callback(self, msg):
         with self.data_lock:
@@ -129,14 +137,45 @@ class LongTermDataRecorder(Node):
 
     def system_callback(self, msg):
         with self.data_lock:
+            # Add timestamp if not already added by metrics_callback
+            # This ensures timestamps and system data are synchronized
+            elapsed = time.time() - self.start_walltime
+            if len(self.data['timestamps']) == len(self.data['cpu']):
+                # Timestamp not yet added, add it
+                self.data['timestamps'].append(elapsed)
+            
             if len(msg.data) >= 7:
                 self.data['cpu'].append(msg.data[0])
                 self.data['memory'].append(msg.data[1])
                 self.data['temperature'].append(msg.data[6])
+                
+                # Extract top 10 processes memory usage and CPU usage (starts at index 7)
+                # Format: [cpu, memory, cpu_avg, memory_avg, process_cpu, process_mem, temp, top1_mem, top1_cpu, top2_mem, top2_cpu, ..., top10_mem, top10_cpu, ...jetson_temps]
+                if len(msg.data) >= 27:  # At least 7 base + 10 top processes (memory + CPU) = 7 + 20
+                    for i in range(10):
+                        process_mem_idx = 7 + (i * 2)  # Memory at even offsets
+                        process_cpu_idx = 7 + (i * 2) + 1  # CPU at odd offsets
+                        if process_mem_idx < len(msg.data):
+                            self.data['top_processes_memory'][i].append(msg.data[process_mem_idx])
+                        else:
+                            self.data['top_processes_memory'][i].append(float('nan'))
+                        if process_cpu_idx < len(msg.data):
+                            self.data['top_processes_cpu'][i].append(msg.data[process_cpu_idx])
+                        else:
+                            self.data['top_processes_cpu'][i].append(float('nan'))
+                else:
+                    # Not enough data, fill with NaN
+                    for i in range(10):
+                        self.data['top_processes_memory'][i].append(float('nan'))
+                        self.data['top_processes_cpu'][i].append(float('nan'))
             else:
                 self.data['cpu'].append(float('nan'))
                 self.data['memory'].append(float('nan'))
                 self.data['temperature'].append(float('nan'))
+                # Fill top processes with NaN
+                for i in range(10):
+                    self.data['top_processes_memory'][i].append(float('nan'))
+                    self.data['top_processes_cpu'][i].append(float('nan'))
 
             self._trim_if_needed()
 

@@ -178,6 +178,22 @@ class GraphGenerator:
         """Create a single time series plot"""
         plt.figure(figsize=(12, 8))
 
+        # Convert timestamps (seconds) to appropriate time units for display
+        # Determine best unit based on max time
+        max_time = max(x_data) if x_data else 0
+        if max_time >= 86400:  # >= 1 day
+            # Convert to days
+            x_data_converted = [t / 86400.0 for t in x_data]
+            xlabel_converted = 'Time (days)'
+        elif max_time >= 3600:  # >= 1 hour
+            # Convert to hours
+            x_data_converted = [t / 3600.0 for t in x_data]
+            xlabel_converted = 'Time (hours)'
+        else:
+            # Keep as seconds
+            x_data_converted = x_data
+            xlabel_converted = xlabel
+
         # Downsample if too many points to render efficiently
         # Keeps local extrema within bins to preserve spikes/outliers
         def _downsample_minmax(x, y, max_points=8000):
@@ -209,7 +225,7 @@ class GraphGenerator:
             keep_indices = np.array(sorted(set(keep_indices)))
             return np.asarray(x)[keep_indices].tolist(), np.asarray(y)[keep_indices].tolist()
 
-        x_plot, y_plot = _downsample_minmax(x_data, y_data)
+        x_plot, y_plot = _downsample_minmax(x_data_converted, y_data)
 
         # Main plot
         plt.plot(x_plot, y_plot, color=color, linewidth=1.8, alpha=0.85)
@@ -238,7 +254,7 @@ class GraphGenerator:
         
         # Formatting
         plt.title(title, fontsize=18, fontweight='bold', pad=20)
-        plt.xlabel(xlabel, fontsize=14)
+        plt.xlabel(xlabel_converted, fontsize=14)
         plt.ylabel(ylabel, fontsize=14)
         plt.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
         plt.legend(loc='best', fontsize=12, framealpha=0.9)

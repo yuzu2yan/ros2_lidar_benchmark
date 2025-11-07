@@ -107,6 +107,33 @@ class SystemMonitor(Node):
                 self.get_logger().info(f"Monitoring process: {proc.info['name']} (PID: {proc.info['pid']})")
                 break
     
+    def get_top_processes_by_memory(self, top_n=10):
+        """Get top N processes by memory usage, including CPU usage"""
+        processes = []
+        try:
+            for proc in psutil.process_iter(['pid', 'name', 'memory_info']):
+                try:
+                    p = psutil.Process(proc.info['pid'])
+                    mem_info = proc.info['memory_info']
+                    if mem_info:
+                        mem_mb = mem_info.rss / (1024**2)  # Convert to MB
+                        cpu_percent = p.cpu_percent(interval=0.1)  # Get CPU usage
+                        processes.append({
+                            'pid': proc.info['pid'],
+                            'name': proc.info['name'],
+                            'memory_mb': mem_mb,
+                            'cpu_percent': cpu_percent
+                        })
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+        except Exception as e:
+            self.get_logger().warn(f'Error getting top processes: {e}')
+            return []
+        
+        # Sort by memory usage (descending) and return top N
+        processes.sort(key=lambda x: x['memory_mb'], reverse=True)
+        return processes[:top_n]
+    
     def get_system_metrics(self):
         metrics = {}
         
@@ -121,6 +148,14 @@ class SystemMonitor(Node):
         disk = psutil.disk_usage('/')
         metrics['disk_percent'] = disk.percent
         metrics['disk_free_gb'] = disk.free / (1024**3)
+        
+        # Get top 10 processes by memory usage
+        top_processes = self.get_top_processes_by_memory(10)
+        for i, proc in enumerate(top_processes):
+            metrics[f'top_process_{i+1}_name'] = proc['name']
+            metrics[f'top_process_{i+1}_pid'] = proc['pid']
+            metrics[f'top_process_{i+1}_memory_mb'] = proc['memory_mb']
+            metrics[f'top_process_{i+1}_cpu_percent'] = proc.get('cpu_percent', 0.0)
         
         # Jetson temperature monitoring
         jetson_temps = self.get_jetson_temperatures()
@@ -176,6 +211,13 @@ class SystemMonitor(Node):
             float(metrics.get('cpu_temp_c', 0.0))
         ]
         
+        # Add top 10 processes memory usage (MB) and CPU usage (%)
+        for i in range(1, 11):
+            key_mem = f'top_process_{i}_memory_mb'
+            key_cpu = f'top_process_{i}_cpu_percent'
+            base_data.append(float(metrics.get(key_mem, 0.0)))
+            base_data.append(float(metrics.get(key_cpu, 0.0)))
+        
         # Add Jetson-specific temperatures if available
         if self.is_jetson:
             for zone in ['cpu', 'gpu', 'aux', 'ao', 'pmic', 'tboard', 'tdiode']:
@@ -220,7 +262,7 @@ class SystemMonitor(Node):
         self.get_logger().debug(
             f"CPU: {metrics['cpu_percent']:.1f}%, "
             f"Memory: {metrics['memory_percent']:.1f}%, "
-            f"Temp: {metrics.get('cpu_temp_c', 0):.1f}°C"
+            f"Temp: {metrics.get('cpu_temp_c', 0):.1f}?C"
         )
     
     def shutdown_callback(self, msg):

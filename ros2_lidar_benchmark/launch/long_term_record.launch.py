@@ -57,7 +57,7 @@ def generate_launch_description():
 
     checkpoint_days_arg = DeclareLaunchArgument(
         'checkpoint_interval_days',
-        default_value='1',
+        default_value='0.5',
         description='Interval in days for cumulative snapshots'
     )
 
