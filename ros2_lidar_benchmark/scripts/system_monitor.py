@@ -46,12 +46,12 @@ class SystemMonitor(Node):
         if self.process_name:
             self.find_process()
         
-        self.get_logger().info('System Monitor started')
+        self._safe_log('info', 'System Monitor started')
         
         # Detect if running on Jetson
         self.is_jetson = self.detect_jetson()
         if self.is_jetson:
-            self.get_logger().info('Jetson platform detected - temperature monitoring enabled')
+            self._safe_log('info', 'Jetson platform detected - temperature monitoring enabled')
         
         # Shutdown handling
         self.should_shutdown = False
@@ -61,6 +61,25 @@ class SystemMonitor(Node):
             self.shutdown_callback,
             10
         )
+    
+    def _safe_log(self, level, message, *args, **kwargs):
+        """Safely log a message, handling invalid ROS2 context"""
+        try:
+            logger = self.get_logger()
+            if level == 'debug':
+                logger.debug(message, *args, **kwargs)
+            elif level == 'info':
+                logger.info(message, *args, **kwargs)
+            elif level == 'warn':
+                logger.warn(message, *args, **kwargs)
+            elif level == 'error':
+                logger.error(message, *args, **kwargs)
+        except Exception:
+            # If ROS2 context is invalid, use print as fallback
+            try:
+                print(f"[{level.upper()}] {message}")
+            except Exception:
+                pass  # Ignore all logging errors
     
     def detect_jetson(self):
         """Detect if running on NVIDIA Jetson platform"""
@@ -108,7 +127,7 @@ class SystemMonitor(Node):
             try:
                 if self.process_name in proc.name():
                     self.process = proc
-                    self.get_logger().info(f"Monitoring process: {proc.name()} (PID: {proc.pid})")
+                    self._safe_log('info', f"Monitoring process: {proc.name()} (PID: {proc.pid})")
                     break
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
@@ -172,7 +191,7 @@ class SystemMonitor(Node):
             
             return top_processes
         except Exception as e:
-            self.get_logger().warn(f'Error getting top processes: {e}')
+            self._safe_log('warn', f'Error getting top processes: {e}')
             return []
     
     def get_system_metrics(self):
@@ -238,7 +257,7 @@ class SystemMonitor(Node):
                     metrics['process_memory_mb'] = 0.0
                     metrics['process_threads'] = 0
         except Exception as e:
-            self.get_logger().error(f'Error in get_system_metrics: {e}', exc_info=True)
+            self._safe_log('error', f'Error in get_system_metrics: {e}')
             # Return minimal metrics to prevent crash
             metrics['cpu_percent'] = 0.0
             metrics['memory_percent'] = 0.0
@@ -254,7 +273,7 @@ class SystemMonitor(Node):
         try:
             metrics = self.get_system_metrics()
         except Exception as e:
-            self.get_logger().error(f'Error in get_system_metrics: {e}', exc_info=True)
+            self._safe_log('error', f'Error in get_system_metrics: {e}')
             return
         
         try:
@@ -300,9 +319,7 @@ class SystemMonitor(Node):
             # Log warning if data length is unexpected
             expected_min_len = 47  # 7 base + 20*2 (memory+CPU)
             if len(base_data) < expected_min_len:
-                self.get_logger().warn(
-                    f'Unexpected data length: got {len(base_data)}, expected at least {expected_min_len}'
-                )
+                self._safe_log('warn', f'Unexpected data length: got {len(base_data)}, expected at least {expected_min_len}')
             
             self.system_pub.publish(system_msg)
             
@@ -343,18 +360,14 @@ class SystemMonitor(Node):
             diag_array.status.append(status)
             self.diagnostics_pub.publish(diag_array)
             
-            self.get_logger().debug(
-                f"CPU: {cpu_percent:.1f}%, "
-                f"Memory: {memory_percent:.1f}%, "
-                f"Temp: {metrics.get('cpu_temp_c', 0):.1f}?C"
-            )
+            self._safe_log('debug', f"CPU: {cpu_percent:.1f}%, Memory: {memory_percent:.1f}%, Temp: {metrics.get('cpu_temp_c', 0):.1f}?C")
         except Exception as e:
-            self.get_logger().error(f'Error in monitor_system: {e}', exc_info=True)
+            self._safe_log('error', f'Error in monitor_system: {e}')
             # Don't raise exception to prevent process from dying
     
     def shutdown_callback(self, msg):
         """Handle shutdown signal"""
-        self.get_logger().info('Received shutdown signal, stopping...')
+        self._safe_log('info', 'Received shutdown signal, stopping...')
         self.should_shutdown = True
         # Set flag to exit main loop
         raise SystemExit
