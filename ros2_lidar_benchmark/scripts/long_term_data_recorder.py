@@ -3,6 +3,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray, Empty
+from diagnostic_msgs.msg import DiagnosticArray
 import json
 import os
 import time
@@ -50,7 +51,8 @@ class LongTermDataRecorder(Node):
             'memory': [],
             'temperature': [],
             'top_processes_memory': [[] for _ in range(20)],  # Top 20 processes memory usage
-            'top_processes_cpu': [[] for _ in range(20)]  # Top 20 processes CPU usage
+            'top_processes_cpu': [[] for _ in range(20)],  # Top 20 processes CPU usage
+            'top_processes_names': [''] * 20  # Top 20 processes names (updated periodically)
         }
 
         self.start_walltime = time.time()
@@ -69,6 +71,14 @@ class LongTermDataRecorder(Node):
             Float64MultiArray,
             '/benchmark/system_resources',
             self.system_callback,
+            10
+        )
+
+        # Subscribe to diagnostics to get process names
+        self.diagnostics_sub = self.create_subscription(
+            DiagnosticArray,
+            '/diagnostics',
+            self.diagnostics_callback,
             10
         )
 
@@ -219,6 +229,28 @@ class LongTermDataRecorder(Node):
                             self.data['top_processes_cpu'][i].append(float('nan'))
                 except Exception:
                     pass  # Ignore errors in error handling
+
+    def diagnostics_callback(self, msg):
+        """Extract process names from diagnostics messages"""
+        with self.data_lock:
+            try:
+                for status in msg.status:
+                    if status.name == "System Resources":
+                        # Extract process names from key-value pairs
+                        for kv in status.values:
+                            if kv.key.startswith('top_process_') and kv.key.endswith('_name'):
+                                # Extract process number from key (e.g., "top_process_1_name" -> 1)
+                                try:
+                                    proc_num = int(kv.key.split('_')[2]) - 1  # Convert to 0-based index
+                                    if 0 <= proc_num < 20:
+                                        self.data['top_processes_names'][proc_num] = kv.value
+                                except (ValueError, IndexError):
+                                    continue
+            except Exception as e:
+                try:
+                    self.get_logger().error(f'Error in diagnostics_callback: {e}', exc_info=True)
+                except Exception:
+                    pass  # Ignore logging errors
 
     def save_current(self):
         """Periodically save the current rolling data for live visualization."""

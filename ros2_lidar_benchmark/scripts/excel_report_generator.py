@@ -309,13 +309,16 @@ class ExcelReportGenerator:
         
         # Create summary table
         row = 3
-        headers = ['Process #', 'Memory Avg (MB)', 'Memory Min (MB)', 'Memory Max (MB)', 
+        headers = ['Process #', 'Process Name', 'Memory Avg (MB)', 'Memory Min (MB)', 'Memory Max (MB)', 
                    'CPU Avg (%)', 'CPU Min (%)', 'CPU Max (%)']
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=row, column=col, value=header)
             cell.font = Font(bold=True)
             cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             cell.font = Font(color="FFFFFF", bold=True)
+        
+        # Get process names
+        process_names = self.viz_data.get('top_processes_names', [])
         
         # Calculate statistics for each process
         for i in range(min(20, len(processes_memory))):
@@ -328,34 +331,40 @@ class ExcelReportGenerator:
             mem_valid = [x for x in mem_data if isinstance(x, (int, float)) and not (isinstance(x, float) and math.isnan(x))]
             cpu_valid = [x for x in cpu_data if isinstance(x, (int, float)) and not (isinstance(x, float) and math.isnan(x))]
             
+            # Get process name
+            proc_name = process_names[i] if i < len(process_names) and process_names[i] else f'Process {i+1}'
+            
             ws[f'A{row}'] = f"Process {i+1}"
+            ws[f'B{row}'] = proc_name
             
             if len(mem_valid) > 0:
-                ws[f'B{row}'] = f"{sum(mem_valid) / len(mem_valid):.2f}"
-                ws[f'C{row}'] = f"{min(mem_valid):.2f}"
-                ws[f'D{row}'] = f"{max(mem_valid):.2f}"
+                ws[f'C{row}'] = f"{sum(mem_valid) / len(mem_valid):.2f}"
+                ws[f'D{row}'] = f"{min(mem_valid):.2f}"
+                ws[f'E{row}'] = f"{max(mem_valid):.2f}"
             else:
-                ws[f'B{row}'] = "N/A"
                 ws[f'C{row}'] = "N/A"
                 ws[f'D{row}'] = "N/A"
+                ws[f'E{row}'] = "N/A"
             
             if len(cpu_valid) > 0:
-                ws[f'E{row}'] = f"{sum(cpu_valid) / len(cpu_valid):.2f}"
-                ws[f'F{row}'] = f"{min(cpu_valid):.2f}"
-                ws[f'G{row}'] = f"{max(cpu_valid):.2f}"
+                ws[f'F{row}'] = f"{sum(cpu_valid) / len(cpu_valid):.2f}"
+                ws[f'G{row}'] = f"{min(cpu_valid):.2f}"
+                ws[f'H{row}'] = f"{max(cpu_valid):.2f}"
             else:
-                ws[f'E{row}'] = "N/A"
                 ws[f'F{row}'] = "N/A"
                 ws[f'G{row}'] = "N/A"
+                ws[f'H{row}'] = "N/A"
         
         # Add note about data source
         row += 2
         ws[f'A{row}'] = "Note: Processes are ranked by memory usage at the time of monitoring."
         ws[f'A{row}'].font = Font(italic=True)
-        ws.merge_cells(f'A{row}:G{row}')
+        ws.merge_cells(f'A{row}:H{row}')
         
         # Auto-adjust column widths
-        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G']:
+        ws.column_dimensions['A'].width = 12  # Process #
+        ws.column_dimensions['B'].width = 30  # Process Name (wider for names)
+        for col in ['C', 'D', 'E', 'F', 'G', 'H']:
             ws.column_dimensions[col].width = 18
     
     def _create_raw_data_sheet(self):

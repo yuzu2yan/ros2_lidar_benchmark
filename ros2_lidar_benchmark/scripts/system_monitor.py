@@ -301,11 +301,15 @@ class SystemMonitor(Node):
             
             # Add top 20 processes memory usage (MB) and CPU usage (%)
             # Ensure we always add exactly 40 values (20 processes * 2 metrics)
+            # Also store process names in diagnostics for later retrieval
+            process_names = []
             for i in range(1, 21):
                 key_mem = f'top_process_{i}_memory_mb'
                 key_cpu = f'top_process_{i}_cpu_percent'
+                key_name = f'top_process_{i}_name'
                 base_data.append(float(metrics.get(key_mem, 0.0)))
                 base_data.append(float(metrics.get(key_cpu, 0.0)))
+                process_names.append(metrics.get(key_name, 'unknown'))
             
             # Add Jetson-specific temperatures if available
             if self.is_jetson:
@@ -352,10 +356,17 @@ class SystemMonitor(Node):
                 try:
                     kv = KeyValue()
                     kv.key = str(key)
-                    kv.value = f"{value:.2f}"
+                    kv.value = f"{value:.2f}" if isinstance(value, (int, float)) else str(value)
                     status.values.append(kv)
                 except Exception:
                     continue
+            
+            # Add process names as separate key-value pairs for easy retrieval
+            for i, name in enumerate(process_names, 1):
+                kv = KeyValue()
+                kv.key = f'top_process_{i}_name'
+                kv.value = name
+                status.values.append(kv)
             
             diag_array.status.append(status)
             self.diagnostics_pub.publish(diag_array)

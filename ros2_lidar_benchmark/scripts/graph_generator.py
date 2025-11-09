@@ -357,12 +357,19 @@ class GraphGenerator:
             if len(x_valid) == 0:
                 continue
             
+            # Get process name if available
+            process_names = self.viz_data.get('top_processes_names', [])
+            if i < len(process_names) and process_names[i]:
+                label = f'{process_names[i]} (P{i+1})'
+            else:
+                label = f'Process {i+1}'
+            
             # Plot with label
             plt.plot(x_valid, y_valid, 
                     color=colors_list[i], 
                     linewidth=1.5, 
                     alpha=0.7,
-                    label=f'Process {i+1}')
+                    label=label)
             plotted_count += 1
         
         if plotted_count == 0:
@@ -375,15 +382,15 @@ class GraphGenerator:
         plt.ylabel(ylabel, fontsize=14)
         plt.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
         
-        # Add legend (limit to top 10 to avoid clutter)
+        # Add legend with all process names
+        # Use smaller font and multiple columns for many processes
         if plotted_count <= 10:
-            plt.legend(loc='best', fontsize=10, framealpha=0.9, ncol=2)
+            plt.legend(loc='best', fontsize=9, framealpha=0.9, ncol=1)
+        elif plotted_count <= 20:
+            plt.legend(loc='best', fontsize=8, framealpha=0.9, ncol=2)
         else:
-            # Show only top 5 and "others"
-            handles, labels = plt.gca().get_legend_handles_labels()
-            plt.legend(handles[:5] + [handles[-1]], 
-                     labels[:5] + [f'... and {plotted_count-5} more'],
-                     loc='best', fontsize=10, framealpha=0.9)
+            # Show all but use smaller font
+            plt.legend(loc='best', fontsize=7, framealpha=0.9, ncol=2)
         
         plt.tight_layout()
         plt.savefig(filename, dpi=200, bbox_inches='tight', facecolor='white')
