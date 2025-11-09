@@ -178,133 +178,179 @@ class SystemMonitor(Node):
     def get_system_metrics(self):
         metrics = {}
         
-        metrics['cpu_percent'] = psutil.cpu_percent(interval=0.1)
-        metrics['cpu_count'] = psutil.cpu_count()
-        
-        memory = psutil.virtual_memory()
-        metrics['memory_percent'] = memory.percent
-        metrics['memory_used_gb'] = memory.used / (1024**3)
-        metrics['memory_available_gb'] = memory.available / (1024**3)
-        
-        disk = psutil.disk_usage('/')
-        metrics['disk_percent'] = disk.percent
-        metrics['disk_free_gb'] = disk.free / (1024**3)
-        
-        # Get top 20 processes by memory usage
-        top_processes = self.get_top_processes_by_memory(20)
-        for i, proc in enumerate(top_processes):
-            metrics[f'top_process_{i+1}_name'] = proc['name']
-            metrics[f'top_process_{i+1}_pid'] = proc['pid']
-            metrics[f'top_process_{i+1}_memory_mb'] = proc['memory_mb']
-            metrics[f'top_process_{i+1}_cpu_percent'] = proc.get('cpu_percent', 0.0)
-        
-        # Jetson temperature monitoring
-        jetson_temps = self.get_jetson_temperatures()
-        if jetson_temps:
-            metrics.update(jetson_temps)
-        else:
-            # Fallback to psutil for non-Jetson systems
-            try:
-                temps = psutil.sensors_temperatures()
-                if temps:
-                    cpu_temps = []
-                    for name, entries in temps.items():
-                        for entry in entries:
-                            if 'cpu' in name.lower() or 'cpu' in entry.label.lower():
-                                cpu_temps.append(entry.current)
-                    if cpu_temps:
-                        metrics['cpu_temp_c'] = sum(cpu_temps) / len(cpu_temps)
-            except:
-                pass
-        
-        if self.process and self.process.is_running():
-            try:
-                metrics['process_cpu_percent'] = self.process.cpu_percent(interval=0.1)
-                metrics['process_memory_mb'] = self.process.memory_info().rss / (1024**2)
-                metrics['process_threads'] = self.process.num_threads()
-            except:
-                self.process = None
+        try:
+            metrics['cpu_percent'] = psutil.cpu_percent(interval=0.1)
+            metrics['cpu_count'] = psutil.cpu_count()
+            
+            memory = psutil.virtual_memory()
+            metrics['memory_percent'] = memory.percent
+            metrics['memory_used_gb'] = memory.used / (1024**3)
+            metrics['memory_available_gb'] = memory.available / (1024**3)
+            
+            disk = psutil.disk_usage('/')
+            metrics['disk_percent'] = disk.percent
+            metrics['disk_free_gb'] = disk.free / (1024**3)
+            
+            # Get top 20 processes by memory usage
+            top_processes = self.get_top_processes_by_memory(20)
+            # Ensure we always have exactly 20 processes (fill with zeros if needed)
+            for i in range(1, 21):
+                if i <= len(top_processes):
+                    proc = top_processes[i-1]
+                    metrics[f'top_process_{i}_name'] = proc.get('name', 'unknown')
+                    metrics[f'top_process_{i}_pid'] = proc.get('pid', 0)
+                    metrics[f'top_process_{i}_memory_mb'] = proc.get('memory_mb', 0.0)
+                    metrics[f'top_process_{i}_cpu_percent'] = proc.get('cpu_percent', 0.0)
+                else:
+                    # Fill missing processes with zeros
+                    metrics[f'top_process_{i}_name'] = 'unknown'
+                    metrics[f'top_process_{i}_pid'] = 0
+                    metrics[f'top_process_{i}_memory_mb'] = 0.0
+                    metrics[f'top_process_{i}_cpu_percent'] = 0.0
+            
+            # Jetson temperature monitoring
+            jetson_temps = self.get_jetson_temperatures()
+            if jetson_temps:
+                metrics.update(jetson_temps)
+            else:
+                # Fallback to psutil for non-Jetson systems
+                try:
+                    temps = psutil.sensors_temperatures()
+                    if temps:
+                        cpu_temps = []
+                        for name, entries in temps.items():
+                            for entry in entries:
+                                if 'cpu' in name.lower() or 'cpu' in entry.label.lower():
+                                    cpu_temps.append(entry.current)
+                        if cpu_temps:
+                            metrics['cpu_temp_c'] = sum(cpu_temps) / len(cpu_temps)
+                except Exception:
+                    pass
+            
+            if self.process and self.process.is_running():
+                try:
+                    metrics['process_cpu_percent'] = self.process.cpu_percent(interval=0.1)
+                    metrics['process_memory_mb'] = self.process.memory_info().rss / (1024**2)
+                    metrics['process_threads'] = self.process.num_threads()
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    self.process = None
+                    metrics['process_cpu_percent'] = 0.0
+                    metrics['process_memory_mb'] = 0.0
+                    metrics['process_threads'] = 0
+        except Exception as e:
+            self.get_logger().error(f'Error in get_system_metrics: {e}', exc_info=True)
+            # Return minimal metrics to prevent crash
+            metrics['cpu_percent'] = 0.0
+            metrics['memory_percent'] = 0.0
+            metrics['cpu_temp_c'] = 0.0
+            # Fill all top processes with zeros
+            for i in range(1, 21):
+                metrics[f'top_process_{i}_memory_mb'] = 0.0
+                metrics[f'top_process_{i}_cpu_percent'] = 0.0
         
         return metrics
     
     def monitor_system(self):
-        metrics = self.get_system_metrics()
+        try:
+            metrics = self.get_system_metrics()
+        except Exception as e:
+            self.get_logger().error(f'Error in get_system_metrics: {e}', exc_info=True)
+            return
         
-        self.cpu_percent_history.append(metrics['cpu_percent'])
-        self.memory_percent_history.append(metrics['memory_percent'])
-        if len(self.cpu_percent_history) > 60:
-            self.cpu_percent_history.pop(0)
-        if len(self.memory_percent_history) > 60:
-            self.memory_percent_history.pop(0)
-        
-        metrics['cpu_avg_1min'] = sum(self.cpu_percent_history) / len(self.cpu_percent_history)
-        metrics['memory_avg_1min'] = sum(self.memory_percent_history) / len(self.memory_percent_history)
-        
-        system_msg = Float64MultiArray()
-        # Ensure all values are float type
-        base_data = [
-            float(metrics.get('cpu_percent', 0.0)),
-            float(metrics.get('memory_percent', 0.0)),
-            float(metrics.get('cpu_avg_1min', 0.0)),
-            float(metrics.get('memory_avg_1min', 0.0)),
-            float(metrics.get('process_cpu_percent', 0.0)),
-            float(metrics.get('process_memory_mb', 0.0)),
-            float(metrics.get('cpu_temp_c', 0.0))
-        ]
-        
-        # Add top 20 processes memory usage (MB) and CPU usage (%)
-        for i in range(1, 21):
-            key_mem = f'top_process_{i}_memory_mb'
-            key_cpu = f'top_process_{i}_cpu_percent'
-            base_data.append(float(metrics.get(key_mem, 0.0)))
-            base_data.append(float(metrics.get(key_cpu, 0.0)))
-        
-        # Add Jetson-specific temperatures if available
-        if self.is_jetson:
-            for zone in ['cpu', 'gpu', 'aux', 'ao', 'pmic', 'tboard', 'tdiode']:
-                key = f'jetson_{zone}_temp_c'
-                if key in metrics:
-                    base_data.append(float(metrics[key]))
-        
-        system_msg.data = base_data
-        self.system_pub.publish(system_msg)
-        
-        diag_array = DiagnosticArray()
-        diag_array.header.stamp = self.get_clock().now().to_msg()
-        
-        status = DiagnosticStatus()
-        status.name = "System Resources"
-        status.level = DiagnosticStatus.OK
-        
-        if metrics['cpu_percent'] > 90:
-            status.level = DiagnosticStatus.ERROR
-            status.message = "CPU usage critical"
-        elif metrics['cpu_percent'] > 70:
-            status.level = DiagnosticStatus.WARN
-            status.message = "High CPU usage"
-        elif metrics['memory_percent'] > 90:
-            status.level = DiagnosticStatus.ERROR
-            status.message = "Memory usage critical"
-        elif metrics['memory_percent'] > 70:
-            status.level = DiagnosticStatus.WARN
-            status.message = "High memory usage"
-        else:
-            status.message = "System resources normal"
-        
-        for key, value in metrics.items():
-            kv = KeyValue()
-            kv.key = key
-            kv.value = f"{value:.2f}"
-            status.values.append(kv)
-        
-        diag_array.status.append(status)
-        self.diagnostics_pub.publish(diag_array)
-        
-        self.get_logger().debug(
-            f"CPU: {metrics['cpu_percent']:.1f}%, "
-            f"Memory: {metrics['memory_percent']:.1f}%, "
-            f"Temp: {metrics.get('cpu_temp_c', 0):.1f}?C"
-        )
+        try:
+            self.cpu_percent_history.append(metrics.get('cpu_percent', 0.0))
+            self.memory_percent_history.append(metrics.get('memory_percent', 0.0))
+            if len(self.cpu_percent_history) > 60:
+                self.cpu_percent_history.pop(0)
+            if len(self.memory_percent_history) > 60:
+                self.memory_percent_history.pop(0)
+            
+            metrics['cpu_avg_1min'] = sum(self.cpu_percent_history) / len(self.cpu_percent_history)
+            metrics['memory_avg_1min'] = sum(self.memory_percent_history) / len(self.memory_percent_history)
+            
+            system_msg = Float64MultiArray()
+            # Ensure all values are float type
+            base_data = [
+                float(metrics.get('cpu_percent', 0.0)),
+                float(metrics.get('memory_percent', 0.0)),
+                float(metrics.get('cpu_avg_1min', 0.0)),
+                float(metrics.get('memory_avg_1min', 0.0)),
+                float(metrics.get('process_cpu_percent', 0.0)),
+                float(metrics.get('process_memory_mb', 0.0)),
+                float(metrics.get('cpu_temp_c', 0.0))
+            ]
+            
+            # Add top 20 processes memory usage (MB) and CPU usage (%)
+            # Ensure we always add exactly 40 values (20 processes * 2 metrics)
+            for i in range(1, 21):
+                key_mem = f'top_process_{i}_memory_mb'
+                key_cpu = f'top_process_{i}_cpu_percent'
+                base_data.append(float(metrics.get(key_mem, 0.0)))
+                base_data.append(float(metrics.get(key_cpu, 0.0)))
+            
+            # Add Jetson-specific temperatures if available
+            if self.is_jetson:
+                for zone in ['cpu', 'gpu', 'aux', 'ao', 'pmic', 'tboard', 'tdiode']:
+                    key = f'jetson_{zone}_temp_c'
+                    if key in metrics:
+                        base_data.append(float(metrics[key]))
+            
+            system_msg.data = base_data
+            
+            # Log warning if data length is unexpected
+            expected_min_len = 47  # 7 base + 20*2 (memory+CPU)
+            if len(base_data) < expected_min_len:
+                self.get_logger().warn(
+                    f'Unexpected data length: got {len(base_data)}, expected at least {expected_min_len}'
+                )
+            
+            self.system_pub.publish(system_msg)
+            
+            diag_array = DiagnosticArray()
+            diag_array.header.stamp = self.get_clock().now().to_msg()
+            
+            status = DiagnosticStatus()
+            status.name = "System Resources"
+            status.level = DiagnosticStatus.OK
+            
+            cpu_percent = metrics.get('cpu_percent', 0.0)
+            memory_percent = metrics.get('memory_percent', 0.0)
+            
+            if cpu_percent > 90:
+                status.level = DiagnosticStatus.ERROR
+                status.message = "CPU usage critical"
+            elif cpu_percent > 70:
+                status.level = DiagnosticStatus.WARN
+                status.message = "High CPU usage"
+            elif memory_percent > 90:
+                status.level = DiagnosticStatus.ERROR
+                status.message = "Memory usage critical"
+            elif memory_percent > 70:
+                status.level = DiagnosticStatus.WARN
+                status.message = "High memory usage"
+            else:
+                status.message = "System resources normal"
+            
+            for key, value in metrics.items():
+                try:
+                    kv = KeyValue()
+                    kv.key = str(key)
+                    kv.value = f"{value:.2f}"
+                    status.values.append(kv)
+                except Exception:
+                    continue
+            
+            diag_array.status.append(status)
+            self.diagnostics_pub.publish(diag_array)
+            
+            self.get_logger().debug(
+                f"CPU: {cpu_percent:.1f}%, "
+                f"Memory: {memory_percent:.1f}%, "
+                f"Temp: {metrics.get('cpu_temp_c', 0):.1f}?C"
+            )
+        except Exception as e:
+            self.get_logger().error(f'Error in monitor_system: {e}', exc_info=True)
+            # Don't raise exception to prevent process from dying
     
     def shutdown_callback(self, msg):
         """Handle shutdown signal"""

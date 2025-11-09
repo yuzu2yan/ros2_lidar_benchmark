@@ -137,47 +137,69 @@ class LongTermDataRecorder(Node):
 
     def system_callback(self, msg):
         with self.data_lock:
-            # Add timestamp if not already added by metrics_callback
-            # This ensures timestamps and system data are synchronized
-            elapsed = time.time() - self.start_walltime
-            if len(self.data['timestamps']) == len(self.data['cpu']):
-                # Timestamp not yet added, add it
-                self.data['timestamps'].append(elapsed)
-            
-            if len(msg.data) >= 7:
-                self.data['cpu'].append(msg.data[0])
-                self.data['memory'].append(msg.data[1])
-                self.data['temperature'].append(msg.data[6])
+            try:
+                # Add timestamp if not already added by metrics_callback
+                # This ensures timestamps and system data are synchronized
+                elapsed = time.time() - self.start_walltime
+                if len(self.data['timestamps']) == len(self.data['cpu']):
+                    # Timestamp not yet added, add it
+                    self.data['timestamps'].append(elapsed)
                 
-                # Extract top 20 processes memory usage and CPU usage (starts at index 7)
-                # Format: [cpu, memory, cpu_avg, memory_avg, process_cpu, process_mem, temp, top1_mem, top1_cpu, top2_mem, top2_cpu, ..., top20_mem, top20_cpu, ...jetson_temps]
-                if len(msg.data) >= 47:  # At least 7 base + 20 top processes (memory + CPU) = 7 + 40
-                    for i in range(20):
-                        process_mem_idx = 7 + (i * 2)  # Memory at even offsets
-                        process_cpu_idx = 7 + (i * 2) + 1  # CPU at odd offsets
-                        if process_mem_idx < len(msg.data):
-                            self.data['top_processes_memory'][i].append(msg.data[process_mem_idx])
-                        else:
+                if len(msg.data) >= 7:
+                    self.data['cpu'].append(msg.data[0])
+                    self.data['memory'].append(msg.data[1])
+                    self.data['temperature'].append(msg.data[6])
+                    
+                    # Extract top 20 processes memory usage and CPU usage (starts at index 7)
+                    # Format: [cpu, memory, cpu_avg, memory_avg, process_cpu, process_mem, temp, top1_mem, top1_cpu, top2_mem, top2_cpu, ..., top20_mem, top20_cpu, ...jetson_temps]
+                    # Expected minimum length: 7 base + 20*2 (memory+CPU) = 47
+                    msg_len = len(msg.data)
+                    expected_min_len = 47
+                    
+                    if msg_len >= expected_min_len:
+                        for i in range(20):
+                            process_mem_idx = 7 + (i * 2)  # Memory at even offsets: 7, 9, 11, ...
+                            process_cpu_idx = 7 + (i * 2) + 1  # CPU at odd offsets: 8, 10, 12, ...
+                            
+                            # Safe access with bounds checking
+                            if process_mem_idx < msg_len:
+                                self.data['top_processes_memory'][i].append(float(msg.data[process_mem_idx]))
+                            else:
+                                self.data['top_processes_memory'][i].append(float('nan'))
+                            
+                            if process_cpu_idx < msg_len:
+                                self.data['top_processes_cpu'][i].append(float(msg.data[process_cpu_idx]))
+                            else:
+                                self.data['top_processes_cpu'][i].append(float('nan'))
+                    else:
+                        # Not enough data, fill with NaN
+                        self.get_logger().warn(
+                            f'Insufficient data in system message: got {msg_len}, expected at least {expected_min_len}. '
+                            f'Filling top processes data with NaN.'
+                        )
+                        for i in range(20):
                             self.data['top_processes_memory'][i].append(float('nan'))
-                        if process_cpu_idx < len(msg.data):
-                            self.data['top_processes_cpu'][i].append(msg.data[process_cpu_idx])
-                        else:
                             self.data['top_processes_cpu'][i].append(float('nan'))
                 else:
-                    # Not enough data, fill with NaN
+                    self.data['cpu'].append(float('nan'))
+                    self.data['memory'].append(float('nan'))
+                    self.data['temperature'].append(float('nan'))
+                    # Fill top processes with NaN
                     for i in range(20):
                         self.data['top_processes_memory'][i].append(float('nan'))
                         self.data['top_processes_cpu'][i].append(float('nan'))
-            else:
-                self.data['cpu'].append(float('nan'))
-                self.data['memory'].append(float('nan'))
-                self.data['temperature'].append(float('nan'))
-                # Fill top processes with NaN
-                for i in range(20):
-                    self.data['top_processes_memory'][i].append(float('nan'))
-                    self.data['top_processes_cpu'][i].append(float('nan'))
-
-            self._trim_if_needed()
+                
+                self._trim_if_needed()
+            except Exception as e:
+                self.get_logger().error(f'Error in system_callback: {e}', exc_info=True)
+                # Fill with NaN on error to maintain data structure consistency
+                if len(self.data['timestamps']) > len(self.data['cpu']):
+                    self.data['cpu'].append(float('nan'))
+                    self.data['memory'].append(float('nan'))
+                    self.data['temperature'].append(float('nan'))
+                    for i in range(20):
+                        self.data['top_processes_memory'][i].append(float('nan'))
+                        self.data['top_processes_cpu'][i].append(float('nan'))
 
     def save_current(self):
         """Periodically save the current rolling data for live visualization."""
