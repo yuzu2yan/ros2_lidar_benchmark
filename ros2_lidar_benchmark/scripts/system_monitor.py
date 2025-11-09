@@ -40,6 +40,9 @@ class SystemMonitor(Node):
         self.memory_percent_history = []
         self.process = None
         
+        # Cache for CPU percent calculation (needs two calls)
+        self.process_cpu_cache = {}  # pid -> last_cpu_time tuple
+        
         if self.process_name:
             self.find_process()
         
@@ -101,38 +104,76 @@ class SystemMonitor(Node):
         return temps if temps else None
         
     def find_process(self):
-        for proc in psutil.process_iter(['pid', 'name']):
-            if self.process_name in proc.info['name']:
-                self.process = psutil.Process(proc.info['pid'])
-                self.get_logger().info(f"Monitoring process: {proc.info['name']} (PID: {proc.info['pid']})")
-                break
+        for proc in psutil.process_iter():
+            try:
+                if self.process_name in proc.name():
+                    self.process = proc
+                    self.get_logger().info(f"Monitoring process: {proc.name()} (PID: {proc.pid})")
+                    break
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
     
     def get_top_processes_by_memory(self, top_n=20):
         """Get top N processes by memory usage, including CPU usage"""
         processes = []
         try:
-            for proc in psutil.process_iter(['pid', 'name', 'memory_info']):
+            # First pass: collect all processes with memory info (fast)
+            for proc in psutil.process_iter():
                 try:
-                    p = psutil.Process(proc.info['pid'])
-                    mem_info = proc.info['memory_info']
+                    mem_info = proc.memory_info()
                     if mem_info:
                         mem_mb = mem_info.rss / (1024**2)  # Convert to MB
-                        cpu_percent = p.cpu_percent(interval=0.1)  # Get CPU usage
                         processes.append({
-                            'pid': proc.info['pid'],
-                            'name': proc.info['name'],
+                            'pid': proc.pid,
+                            'name': proc.name(),
                             'memory_mb': mem_mb,
-                            'cpu_percent': cpu_percent
+                            'proc': proc  # Keep reference for CPU calculation
                         })
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     continue
+            
+            # Sort by memory usage (descending)
+            processes.sort(key=lambda x: x['memory_mb'], reverse=True)
+            
+            # Get top N processes
+            top_processes = processes[:top_n]
+            
+            # Second pass: get CPU usage only for top N processes (much faster)
+            # Use cached CPU percent calculation for better performance
+            for proc_info in top_processes:
+                try:
+                    proc = proc_info['proc']
+                    pid = proc.pid
+                    
+                    # Use cached CPU percent calculation
+                    # First call with interval=None returns 0.0, but sets up internal state
+                    # Second call (if cached) or next call will return actual value
+                    if pid not in self.process_cpu_cache:
+                        # First time seeing this process, initialize
+                        proc.cpu_percent(interval=None)
+                        self.process_cpu_cache[pid] = None
+                        cpu_percent = 0.0
+                    else:
+                        # Get CPU percent (non-blocking, uses cached calculation)
+                        cpu_percent = proc.cpu_percent(interval=None)
+                    
+                    proc_info['cpu_percent'] = cpu_percent
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    proc_info['cpu_percent'] = 0.0
+                    # Remove from cache if process no longer exists
+                    self.process_cpu_cache.pop(pid, None)
+                finally:
+                    # Remove proc reference to avoid keeping process handles
+                    proc_info.pop('proc', None)
+            
+            # Clean up cache for processes that no longer exist
+            active_pids = {p['pid'] for p in top_processes}
+            self.process_cpu_cache = {pid: val for pid, val in self.process_cpu_cache.items() if pid in active_pids}
+            
+            return top_processes
         except Exception as e:
             self.get_logger().warn(f'Error getting top processes: {e}')
             return []
-        
-        # Sort by memory usage (descending) and return top N
-        processes.sort(key=lambda x: x['memory_mb'], reverse=True)
-        return processes[:top_n]
     
     def get_system_metrics(self):
         metrics = {}
