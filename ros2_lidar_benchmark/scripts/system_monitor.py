@@ -107,7 +107,7 @@ class SystemMonitor(Node):
                 self.get_logger().info(f"Monitoring process: {proc.info['name']} (PID: {proc.info['pid']})")
                 break
     
-    def get_top_processes_by_memory(self, top_n=10):
+    def get_top_processes_by_memory(self, top_n=20):
         """Get top N processes by memory usage, including CPU usage"""
         processes = []
         try:
@@ -149,8 +149,8 @@ class SystemMonitor(Node):
         metrics['disk_percent'] = disk.percent
         metrics['disk_free_gb'] = disk.free / (1024**3)
         
-        # Get top 10 processes by memory usage
-        top_processes = self.get_top_processes_by_memory(10)
+        # Get top 20 processes by memory usage
+        top_processes = self.get_top_processes_by_memory(20)
         for i, proc in enumerate(top_processes):
             metrics[f'top_process_{i+1}_name'] = proc['name']
             metrics[f'top_process_{i+1}_pid'] = proc['pid']
@@ -211,8 +211,8 @@ class SystemMonitor(Node):
             float(metrics.get('cpu_temp_c', 0.0))
         ]
         
-        # Add top 10 processes memory usage (MB) and CPU usage (%)
-        for i in range(1, 11):
+        # Add top 20 processes memory usage (MB) and CPU usage (%)
+        for i in range(1, 21):
             key_mem = f'top_process_{i}_memory_mb'
             key_cpu = f'top_process_{i}_cpu_percent'
             base_data.append(float(metrics.get(key_mem, 0.0)))

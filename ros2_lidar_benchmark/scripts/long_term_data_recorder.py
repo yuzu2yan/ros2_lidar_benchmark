@@ -110,7 +110,7 @@ class LongTermDataRecorder(Node):
                     # Keep the most recent max_points
                     self.data[key] = self.data[key][-self.max_points:]
             # Trim top processes memory and CPU arrays
-            for i in range(10):
+            for i in range(20):
                 if len(self.data['top_processes_memory'][i]) > self.max_points:
                     self.data['top_processes_memory'][i] = self.data['top_processes_memory'][i][-self.max_points:]
                 if len(self.data['top_processes_cpu'][i]) > self.max_points:
@@ -149,10 +149,10 @@ class LongTermDataRecorder(Node):
                 self.data['memory'].append(msg.data[1])
                 self.data['temperature'].append(msg.data[6])
                 
-                # Extract top 10 processes memory usage and CPU usage (starts at index 7)
-                # Format: [cpu, memory, cpu_avg, memory_avg, process_cpu, process_mem, temp, top1_mem, top1_cpu, top2_mem, top2_cpu, ..., top10_mem, top10_cpu, ...jetson_temps]
-                if len(msg.data) >= 27:  # At least 7 base + 10 top processes (memory + CPU) = 7 + 20
-                    for i in range(10):
+                # Extract top 20 processes memory usage and CPU usage (starts at index 7)
+                # Format: [cpu, memory, cpu_avg, memory_avg, process_cpu, process_mem, temp, top1_mem, top1_cpu, top2_mem, top2_cpu, ..., top20_mem, top20_cpu, ...jetson_temps]
+                if len(msg.data) >= 47:  # At least 7 base + 20 top processes (memory + CPU) = 7 + 40
+                    for i in range(20):
                         process_mem_idx = 7 + (i * 2)  # Memory at even offsets
                         process_cpu_idx = 7 + (i * 2) + 1  # CPU at odd offsets
                         if process_mem_idx < len(msg.data):
@@ -165,7 +165,7 @@ class LongTermDataRecorder(Node):
                             self.data['top_processes_cpu'][i].append(float('nan'))
                 else:
                     # Not enough data, fill with NaN
-                    for i in range(10):
+                    for i in range(20):
                         self.data['top_processes_memory'][i].append(float('nan'))
                         self.data['top_processes_cpu'][i].append(float('nan'))
             else:
@@ -173,7 +173,7 @@ class LongTermDataRecorder(Node):
                 self.data['memory'].append(float('nan'))
                 self.data['temperature'].append(float('nan'))
                 # Fill top processes with NaN
-                for i in range(10):
+                for i in range(20):
                     self.data['top_processes_memory'][i].append(float('nan'))
                     self.data['top_processes_cpu'][i].append(float('nan'))
 
