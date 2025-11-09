@@ -52,7 +52,10 @@ class LongTermDataRecorder(Node):
             'temperature': [],
             'top_processes_memory': [[] for _ in range(20)],  # Top 20 processes memory usage
             'top_processes_cpu': [[] for _ in range(20)],  # Top 20 processes CPU usage
-            'top_processes_names': [''] * 20  # Top 20 processes names (updated periodically)
+            'top_processes_names': [''] * 20,  # Top 20 processes names (updated periodically)
+            'top_processes_cmdlines': [''] * 20,  # Top 20 processes command lines
+            'top_processes_exes': [''] * 20,  # Top 20 processes executable paths
+            'top_processes_cwds': [''] * 20  # Top 20 processes working directories
         }
 
         self.start_walltime = time.time()
@@ -231,12 +234,12 @@ class LongTermDataRecorder(Node):
                     pass  # Ignore errors in error handling
 
     def diagnostics_callback(self, msg):
-        """Extract process names from diagnostics messages"""
+        """Extract process names and details from diagnostics messages"""
         with self.data_lock:
             try:
                 for status in msg.status:
                     if status.name == "System Resources":
-                        # Extract process names from key-value pairs
+                        # Extract process information from key-value pairs
                         for kv in status.values:
                             if kv.key.startswith('top_process_') and kv.key.endswith('_name'):
                                 # Extract process number from key (e.g., "top_process_1_name" -> 1)
@@ -244,6 +247,30 @@ class LongTermDataRecorder(Node):
                                     proc_num = int(kv.key.split('_')[2]) - 1  # Convert to 0-based index
                                     if 0 <= proc_num < 20:
                                         self.data['top_processes_names'][proc_num] = kv.value
+                                except (ValueError, IndexError):
+                                    continue
+                            elif kv.key.startswith('top_process_') and kv.key.endswith('_cmdline'):
+                                # Extract command line
+                                try:
+                                    proc_num = int(kv.key.split('_')[2]) - 1
+                                    if 0 <= proc_num < 20:
+                                        self.data['top_processes_cmdlines'][proc_num] = kv.value
+                                except (ValueError, IndexError):
+                                    continue
+                            elif kv.key.startswith('top_process_') and kv.key.endswith('_exe'):
+                                # Extract executable path
+                                try:
+                                    proc_num = int(kv.key.split('_')[2]) - 1
+                                    if 0 <= proc_num < 20:
+                                        self.data['top_processes_exes'][proc_num] = kv.value
+                                except (ValueError, IndexError):
+                                    continue
+                            elif kv.key.startswith('top_process_') and kv.key.endswith('_cwd'):
+                                # Extract working directory
+                                try:
+                                    proc_num = int(kv.key.split('_')[2]) - 1
+                                    if 0 <= proc_num < 20:
+                                        self.data['top_processes_cwds'][proc_num] = kv.value
                                 except (ValueError, IndexError):
                                     continue
             except Exception as e:

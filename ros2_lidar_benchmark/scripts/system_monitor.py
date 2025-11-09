@@ -187,6 +187,34 @@ class SystemMonitor(Node):
                     # Store display name with PID to distinguish multiple instances of same process
                     proc_name = proc_info.get('name', '')
                     proc_pid = proc_info.get('pid', 0)
+                    
+                    # Get additional process information for debugging
+                    try:
+                        proc_obj = proc_info.get('proc')
+                        if proc_obj:
+                            # Get command line arguments
+                            try:
+                                cmdline = proc_obj.cmdline()
+                                proc_info['cmdline'] = ' '.join(cmdline) if cmdline else ''
+                            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                proc_info['cmdline'] = ''
+                            
+                            # Get executable path
+                            try:
+                                proc_info['exe'] = proc_obj.exe() if proc_obj.exe() else ''
+                            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                proc_info['exe'] = ''
+                            
+                            # Get working directory
+                            try:
+                                proc_info['cwd'] = proc_obj.cwd() if proc_obj.cwd() else ''
+                            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                proc_info['cwd'] = ''
+                    except Exception:
+                        proc_info['cmdline'] = ''
+                        proc_info['exe'] = ''
+                        proc_info['cwd'] = ''
+                    
                     if proc_name:
                         proc_info['display_name'] = f"{proc_name} (PID:{proc_pid})"
                     elif proc_pid > 0:
@@ -248,6 +276,10 @@ class SystemMonitor(Node):
                     metrics[f'top_process_{i}_pid'] = proc.get('pid', 0)
                     metrics[f'top_process_{i}_memory_mb'] = proc.get('memory_mb', 0.0)
                     metrics[f'top_process_{i}_cpu_percent'] = proc.get('cpu_percent', 0.0)
+                    # Store additional process information
+                    metrics[f'top_process_{i}_cmdline'] = proc.get('cmdline', '')
+                    metrics[f'top_process_{i}_exe'] = proc.get('exe', '')
+                    metrics[f'top_process_{i}_cwd'] = proc.get('cwd', '')
                 else:
                     # Fill missing processes with empty values (not "unknown")
                     metrics[f'top_process_{i}_name'] = ''  # Empty string instead of 'unknown'
@@ -390,12 +422,35 @@ class SystemMonitor(Node):
                 except Exception:
                     continue
             
-            # Add process names as separate key-value pairs for easy retrieval
+            # Add process names and additional info as separate key-value pairs for easy retrieval
             for i, name in enumerate(process_names, 1):
                 kv = KeyValue()
                 kv.key = f'top_process_{i}_name'
                 kv.value = name
                 status.values.append(kv)
+                
+                # Add command line, executable path, and working directory
+                cmdline = metrics.get(f'top_process_{i}_cmdline', '')
+                exe = metrics.get(f'top_process_{i}_exe', '')
+                cwd = metrics.get(f'top_process_{i}_cwd', '')
+                
+                if cmdline:
+                    kv_cmd = KeyValue()
+                    kv_cmd.key = f'top_process_{i}_cmdline'
+                    kv_cmd.value = cmdline[:200]  # Limit length to avoid message size issues
+                    status.values.append(kv_cmd)
+                
+                if exe:
+                    kv_exe = KeyValue()
+                    kv_exe.key = f'top_process_{i}_exe'
+                    kv_exe.value = exe
+                    status.values.append(kv_exe)
+                
+                if cwd:
+                    kv_cwd = KeyValue()
+                    kv_cwd.key = f'top_process_{i}_cwd'
+                    kv_cwd.value = cwd
+                    status.values.append(kv_cwd)
             
             diag_array.status.append(status)
             self.diagnostics_pub.publish(diag_array)

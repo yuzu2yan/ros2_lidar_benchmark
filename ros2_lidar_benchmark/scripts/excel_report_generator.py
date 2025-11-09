@@ -309,7 +309,8 @@ class ExcelReportGenerator:
         
         # Create summary table
         row = 3
-        headers = ['Process #', 'Process Name', 'Memory Avg (MB)', 'Memory Min (MB)', 'Memory Max (MB)', 
+        headers = ['Process #', 'Process Name', 'Command Line', 'Executable Path', 'Working Dir',
+                   'Memory Avg (MB)', 'Memory Min (MB)', 'Memory Max (MB)', 
                    'CPU Avg (%)', 'CPU Min (%)', 'CPU Max (%)']
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=row, column=col, value=header)
@@ -317,8 +318,11 @@ class ExcelReportGenerator:
             cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             cell.font = Font(color="FFFFFF", bold=True)
         
-        # Get process names
+        # Get process names and details
         process_names = self.viz_data.get('top_processes_names', [])
+        process_cmdlines = self.viz_data.get('top_processes_cmdlines', [])
+        process_exes = self.viz_data.get('top_processes_exes', [])
+        process_cwds = self.viz_data.get('top_processes_cwds', [])
         
         # Calculate statistics for each process
         for i in range(min(20, len(processes_memory))):
@@ -331,8 +335,11 @@ class ExcelReportGenerator:
             mem_valid = [x for x in mem_data if isinstance(x, (int, float)) and not (isinstance(x, float) and math.isnan(x))]
             cpu_valid = [x for x in cpu_data if isinstance(x, (int, float)) and not (isinstance(x, float) and math.isnan(x))]
             
-            # Get process name
+            # Get process information
             proc_name = process_names[i] if i < len(process_names) and process_names[i] and process_names[i].strip() else ''
+            proc_cmdline = process_cmdlines[i] if i < len(process_cmdlines) and process_cmdlines[i] else ''
+            proc_exe = process_exes[i] if i < len(process_exes) and process_exes[i] else ''
+            proc_cwd = process_cwds[i] if i < len(process_cwds) and process_cwds[i] else ''
             
             # Skip rows with no process name or no data
             if not proc_name and len(mem_valid) == 0 and len(cpu_valid) == 0:
@@ -340,35 +347,41 @@ class ExcelReportGenerator:
             
             ws[f'A{row}'] = f"Process {i+1}"
             ws[f'B{row}'] = proc_name if proc_name else f'Process {i+1} (no name)'
+            ws[f'C{row}'] = proc_cmdline[:200] if proc_cmdline else ''  # Limit length
+            ws[f'D{row}'] = proc_exe if proc_exe else ''
+            ws[f'E{row}'] = proc_cwd if proc_cwd else ''
             
             if len(mem_valid) > 0:
-                ws[f'C{row}'] = f"{sum(mem_valid) / len(mem_valid):.2f}"
-                ws[f'D{row}'] = f"{min(mem_valid):.2f}"
-                ws[f'E{row}'] = f"{max(mem_valid):.2f}"
-            else:
-                ws[f'C{row}'] = "N/A"
-                ws[f'D{row}'] = "N/A"
-                ws[f'E{row}'] = "N/A"
-            
-            if len(cpu_valid) > 0:
-                ws[f'F{row}'] = f"{sum(cpu_valid) / len(cpu_valid):.2f}"
-                ws[f'G{row}'] = f"{min(cpu_valid):.2f}"
-                ws[f'H{row}'] = f"{max(cpu_valid):.2f}"
+                ws[f'F{row}'] = f"{sum(mem_valid) / len(mem_valid):.2f}"
+                ws[f'G{row}'] = f"{min(mem_valid):.2f}"
+                ws[f'H{row}'] = f"{max(mem_valid):.2f}"
             else:
                 ws[f'F{row}'] = "N/A"
                 ws[f'G{row}'] = "N/A"
                 ws[f'H{row}'] = "N/A"
+            
+            if len(cpu_valid) > 0:
+                ws[f'I{row}'] = f"{sum(cpu_valid) / len(cpu_valid):.2f}"
+                ws[f'J{row}'] = f"{min(cpu_valid):.2f}"
+                ws[f'K{row}'] = f"{max(cpu_valid):.2f}"
+            else:
+                ws[f'I{row}'] = "N/A"
+                ws[f'J{row}'] = "N/A"
+                ws[f'K{row}'] = "N/A"
         
         # Add note about data source
         row += 2
         ws[f'A{row}'] = "Note: Processes are ranked by memory usage at the time of monitoring."
         ws[f'A{row}'].font = Font(italic=True)
-        ws.merge_cells(f'A{row}:H{row}')
+        ws.merge_cells(f'A{row}:K{row}')
         
         # Auto-adjust column widths
         ws.column_dimensions['A'].width = 12  # Process #
-        ws.column_dimensions['B'].width = 30  # Process Name (wider for names)
-        for col in ['C', 'D', 'E', 'F', 'G', 'H']:
+        ws.column_dimensions['B'].width = 25  # Process Name
+        ws.column_dimensions['C'].width = 50  # Command Line (wider for full commands)
+        ws.column_dimensions['D'].width = 40  # Executable Path
+        ws.column_dimensions['E'].width = 30  # Working Directory
+        for col in ['F', 'G', 'H', 'I', 'J', 'K']:
             ws.column_dimensions[col].width = 18
     
     def _create_raw_data_sheet(self):
