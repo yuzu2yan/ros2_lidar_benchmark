@@ -12,8 +12,9 @@ import argparse
 
 
 class ExcelReportGenerator:
-    def __init__(self, json_report_path, output_path=None):
+    def __init__(self, json_report_path, output_path=None, visualization_data_path=None):
         self.json_report_path = json_report_path
+        self.visualization_data_path = visualization_data_path
         
         if output_path is None:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -21,12 +22,22 @@ class ExcelReportGenerator:
         
         self.output_path = output_path
         self.data = None
+        self.viz_data = None
         self.wb = None
         
     def load_json_report(self):
         """Load JSON report data"""
         with open(self.json_report_path, 'r') as f:
             self.data = json.load(f)
+        
+        # Load visualization data if available
+        if self.visualization_data_path and os.path.exists(self.visualization_data_path):
+            try:
+                with open(self.visualization_data_path, 'r') as f:
+                    self.viz_data = json.load(f)
+            except Exception as e:
+                print(f"Warning: Could not load visualization data: {e}")
+                self.viz_data = None
     
     def create_excel_report(self):
         """Create comprehensive Excel report"""
@@ -39,6 +50,7 @@ class ExcelReportGenerator:
         self._create_summary_sheet()
         self._create_metrics_sheet()
         self._create_system_resources_sheet()
+        self._create_top_processes_sheet()
         self._create_raw_data_sheet()
         
         # Save workbook
@@ -273,6 +285,78 @@ class ExcelReportGenerator:
         # Auto-adjust column widths
         for col in ['A', 'B', 'C', 'D']:
             ws.column_dimensions[col].width = 15
+    
+    def _create_top_processes_sheet(self):
+        """Create top processes sheet with memory and CPU usage"""
+        ws = self.wb.create_sheet("Top Processes")
+        
+        # Title
+        ws['A1'] = "Top 20 Processes Resource Usage"
+        ws['A1'].font = Font(size=14, bold=True)
+        
+        if not self.viz_data or 'top_processes_memory' not in self.viz_data:
+            ws['A3'] = "No top processes data available"
+            return
+        
+        # Calculate statistics for each process
+        processes_memory = self.viz_data.get('top_processes_memory', [])
+        processes_cpu = self.viz_data.get('top_processes_cpu', [])
+        timestamps = self.viz_data.get('timestamps', [])
+        
+        if not processes_memory or len(processes_memory) == 0:
+            ws['A3'] = "No top processes data available"
+            return
+        
+        # Create summary table
+        row = 3
+        headers = ['Process #', 'Memory Avg (MB)', 'Memory Min (MB)', 'Memory Max (MB)', 
+                   'CPU Avg (%)', 'CPU Min (%)', 'CPU Max (%)']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col, value=header)
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.font = Font(color="FFFFFF", bold=True)
+        
+        # Calculate statistics for each process
+        for i in range(min(20, len(processes_memory))):
+            row += 1
+            mem_data = processes_memory[i] if i < len(processes_memory) else []
+            cpu_data = processes_cpu[i] if i < len(processes_cpu) else []
+            
+            # Filter out NaN values
+            import math
+            mem_valid = [x for x in mem_data if isinstance(x, (int, float)) and not (isinstance(x, float) and math.isnan(x))]
+            cpu_valid = [x for x in cpu_data if isinstance(x, (int, float)) and not (isinstance(x, float) and math.isnan(x))]
+            
+            ws[f'A{row}'] = f"Process {i+1}"
+            
+            if len(mem_valid) > 0:
+                ws[f'B{row}'] = f"{sum(mem_valid) / len(mem_valid):.2f}"
+                ws[f'C{row}'] = f"{min(mem_valid):.2f}"
+                ws[f'D{row}'] = f"{max(mem_valid):.2f}"
+            else:
+                ws[f'B{row}'] = "N/A"
+                ws[f'C{row}'] = "N/A"
+                ws[f'D{row}'] = "N/A"
+            
+            if len(cpu_valid) > 0:
+                ws[f'E{row}'] = f"{sum(cpu_valid) / len(cpu_valid):.2f}"
+                ws[f'F{row}'] = f"{min(cpu_valid):.2f}"
+                ws[f'G{row}'] = f"{max(cpu_valid):.2f}"
+            else:
+                ws[f'E{row}'] = "N/A"
+                ws[f'F{row}'] = "N/A"
+                ws[f'G{row}'] = "N/A"
+        
+        # Add note about data source
+        row += 2
+        ws[f'A{row}'] = "Note: Processes are ranked by memory usage at the time of monitoring."
+        ws[f'A{row}'].font = Font(italic=True)
+        ws.merge_cells(f'A{row}:G{row}')
+        
+        # Auto-adjust column widths
+        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G']:
+            ws.column_dimensions[col].width = 18
     
     def _create_raw_data_sheet(self):
         """Create raw data sheet with all JSON data"""

@@ -49,8 +49,8 @@ class LongTermDataRecorder(Node):
             'cpu': [],
             'memory': [],
             'temperature': [],
-            'top_processes_memory': [[] for _ in range(10)],  # Top 10 processes memory usage
-            'top_processes_cpu': [[] for _ in range(10)]  # Top 10 processes CPU usage
+            'top_processes_memory': [[] for _ in range(20)],  # Top 20 processes memory usage
+            'top_processes_cpu': [[] for _ in range(20)]  # Top 20 processes CPU usage
         }
 
         self.start_walltime = time.time()
@@ -390,7 +390,8 @@ class LongTermDataRecorder(Node):
 
                     excel_name = f'report_{self.start_iso}_until_{ts}_{tag}.xlsx'
                     excel_path = os.path.join(snapshot_dir, excel_name)
-                    gen = ExcelReportGenerator(tmp_json, excel_path)
+                    viz_file = os.path.join(self.output_dir, 'visualization_data.json')
+                    gen = ExcelReportGenerator(tmp_json, excel_path, visualization_data_path=viz_file)
                     gen.generate()
                 except Exception as e:
                     self.get_logger().error(f'Excel generation failed: {e}')

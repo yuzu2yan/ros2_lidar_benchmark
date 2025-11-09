@@ -173,6 +173,26 @@ class GraphGenerator:
                 colors['temperature'],
                 os.path.join(output_dir, '07_temperature_timeline.png')
             )
+        
+        # 8. Top Processes Memory Usage
+        if 'top_processes_memory' in self.viz_data and len(self.viz_data['top_processes_memory']) > 0:
+            self._create_top_processes_plot(
+                output_dir,
+                'top_processes_memory',
+                'Top 20 Processes Memory Usage Over Time',
+                'Memory Usage (MB)',
+                os.path.join(output_dir, '08_top_processes_memory_timeline.png')
+            )
+        
+        # 9. Top Processes CPU Usage
+        if 'top_processes_cpu' in self.viz_data and len(self.viz_data['top_processes_cpu']) > 0:
+            self._create_top_processes_plot(
+                output_dir,
+                'top_processes_cpu',
+                'Top 20 Processes CPU Usage Over Time',
+                'CPU Usage (%)',
+                os.path.join(output_dir, '09_top_processes_cpu_timeline.png')
+            )
     
     def _create_time_series_plot(self, x_data, y_data, title, xlabel, ylabel, color, filename, ylim=None):
         """Create a single time series plot"""
@@ -276,6 +296,96 @@ class GraphGenerator:
         
         plt.tight_layout()
         # Use moderate DPI to avoid huge files with large data
+        plt.savefig(filename, dpi=200, bbox_inches='tight', facecolor='white')
+        plt.close()
+    
+    def _create_top_processes_plot(self, output_dir, data_key, title, ylabel, filename):
+        """Create a plot showing top processes over time"""
+        plt.figure(figsize=(14, 10))
+        
+        # Get timestamps
+        timestamps = self.viz_data.get('timestamps', [])
+        if not timestamps:
+            plt.close()
+            return
+        
+        # Convert timestamps to appropriate time units
+        max_time = max(timestamps) if timestamps else 0
+        if max_time >= 86400:  # >= 1 day
+            timestamps_converted = [t / 86400.0 for t in timestamps]
+            xlabel = 'Time (days)'
+        elif max_time >= 3600:  # >= 1 hour
+            timestamps_converted = [t / 3600.0 for t in timestamps]
+            xlabel = 'Time (hours)'
+        else:
+            timestamps_converted = timestamps
+            xlabel = 'Time (seconds)'
+        
+        # Get top processes data
+        processes_data = self.viz_data.get(data_key, [])
+        if not processes_data or len(processes_data) == 0:
+            plt.close()
+            return
+        
+        # Generate colors for each process
+        import matplotlib.cm as cm
+        colors_list = cm.get_cmap('tab20')(np.linspace(0, 1, min(20, len(processes_data))))
+        
+        # Plot each process
+        plotted_count = 0
+        for i, process_data in enumerate(processes_data):
+            if not process_data or len(process_data) == 0:
+                continue
+            
+            # Match timestamps length
+            data_len = min(len(timestamps_converted), len(process_data))
+            if data_len == 0:
+                continue
+            
+            # Downsample if needed
+            x_plot = timestamps_converted[:data_len]
+            y_plot = process_data[:data_len]
+            
+            # Filter out NaN values for plotting
+            valid_indices = [j for j, val in enumerate(y_plot) if isinstance(val, (int, float)) and not (isinstance(val, float) and np.isnan(val))]
+            if len(valid_indices) == 0:
+                continue
+            
+            x_valid = [x_plot[j] for j in valid_indices]
+            y_valid = [y_plot[j] for j in valid_indices]
+            
+            if len(x_valid) == 0:
+                continue
+            
+            # Plot with label
+            plt.plot(x_valid, y_valid, 
+                    color=colors_list[i], 
+                    linewidth=1.5, 
+                    alpha=0.7,
+                    label=f'Process {i+1}')
+            plotted_count += 1
+        
+        if plotted_count == 0:
+            plt.close()
+            return
+        
+        # Formatting
+        plt.title(title, fontsize=18, fontweight='bold', pad=20)
+        plt.xlabel(xlabel, fontsize=14)
+        plt.ylabel(ylabel, fontsize=14)
+        plt.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
+        
+        # Add legend (limit to top 10 to avoid clutter)
+        if plotted_count <= 10:
+            plt.legend(loc='best', fontsize=10, framealpha=0.9, ncol=2)
+        else:
+            # Show only top 5 and "others"
+            handles, labels = plt.gca().get_legend_handles_labels()
+            plt.legend(handles[:5] + [handles[-1]], 
+                     labels[:5] + [f'... and {plotted_count-5} more'],
+                     loc='best', fontsize=10, framealpha=0.9)
+        
+        plt.tight_layout()
         plt.savefig(filename, dpi=200, bbox_inches='tight', facecolor='white')
         plt.close()
     
