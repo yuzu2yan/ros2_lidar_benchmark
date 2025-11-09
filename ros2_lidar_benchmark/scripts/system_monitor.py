@@ -43,6 +43,9 @@ class SystemMonitor(Node):
         # Cache for CPU percent calculation (needs two calls)
         self.process_cpu_cache = {}  # pid -> last_cpu_time tuple
         
+        # Get CPU count for normalization
+        self.cpu_count = psutil.cpu_count()
+        
         if self.process_name:
             self.find_process()
         
@@ -176,7 +179,20 @@ class SystemMonitor(Node):
                         # Get CPU percent (non-blocking, uses cached calculation)
                         cpu_percent = proc.cpu_percent(interval=None)
                     
-                    proc_info['cpu_percent'] = cpu_percent
+                    # Normalize CPU percent to 0-100% range (divide by number of cores)
+                    # cpu_percent can exceed 100% on multi-core systems (e.g., 400% on 4 cores)
+                    cpu_percent_normalized = cpu_percent / self.cpu_count if self.cpu_count > 0 else cpu_percent
+                    proc_info['cpu_percent'] = cpu_percent_normalized
+                    
+                    # Store display name with PID to distinguish multiple instances of same process
+                    proc_name = proc_info.get('name', '')
+                    proc_pid = proc_info.get('pid', 0)
+                    if proc_name:
+                        proc_info['display_name'] = f"{proc_name} (PID:{proc_pid})"
+                    elif proc_pid > 0:
+                        proc_info['display_name'] = f"PID:{proc_pid}"
+                    else:
+                        proc_info['display_name'] = ''  # Empty if no process data
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     proc_info['cpu_percent'] = 0.0
                     # Remove from cache if process no longer exists
@@ -212,17 +228,29 @@ class SystemMonitor(Node):
             
             # Get top 20 processes by memory usage
             top_processes = self.get_top_processes_by_memory(20)
-            # Ensure we always have exactly 20 processes (fill with zeros if needed)
+            # Ensure we always have exactly 20 processes (fill with empty if needed)
             for i in range(1, 21):
                 if i <= len(top_processes):
                     proc = top_processes[i-1]
-                    metrics[f'top_process_{i}_name'] = proc.get('name', 'unknown')
+                    # Use display_name (with PID) if available, otherwise construct it
+                    if 'display_name' in proc:
+                        display_name = proc['display_name']
+                    else:
+                        proc_name = proc.get('name', '')
+                        proc_pid = proc.get('pid', 0)
+                        if proc_name:
+                            display_name = f"{proc_name} (PID:{proc_pid})"
+                        elif proc_pid > 0:
+                            display_name = f"PID:{proc_pid}"
+                        else:
+                            display_name = ''  # Empty if no process data
+                    metrics[f'top_process_{i}_name'] = display_name
                     metrics[f'top_process_{i}_pid'] = proc.get('pid', 0)
                     metrics[f'top_process_{i}_memory_mb'] = proc.get('memory_mb', 0.0)
                     metrics[f'top_process_{i}_cpu_percent'] = proc.get('cpu_percent', 0.0)
                 else:
-                    # Fill missing processes with zeros
-                    metrics[f'top_process_{i}_name'] = 'unknown'
+                    # Fill missing processes with empty values (not "unknown")
+                    metrics[f'top_process_{i}_name'] = ''  # Empty string instead of 'unknown'
                     metrics[f'top_process_{i}_pid'] = 0
                     metrics[f'top_process_{i}_memory_mb'] = 0.0
                     metrics[f'top_process_{i}_cpu_percent'] = 0.0
@@ -309,7 +337,8 @@ class SystemMonitor(Node):
                 key_name = f'top_process_{i}_name'
                 base_data.append(float(metrics.get(key_mem, 0.0)))
                 base_data.append(float(metrics.get(key_cpu, 0.0)))
-                process_names.append(metrics.get(key_name, 'unknown'))
+                # Store process name (empty string if not available)
+                process_names.append(metrics.get(key_name, ''))
             
             # Add Jetson-specific temperatures if available
             if self.is_jetson:

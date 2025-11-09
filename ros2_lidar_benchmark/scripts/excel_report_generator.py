@@ -332,10 +332,14 @@ class ExcelReportGenerator:
             cpu_valid = [x for x in cpu_data if isinstance(x, (int, float)) and not (isinstance(x, float) and math.isnan(x))]
             
             # Get process name
-            proc_name = process_names[i] if i < len(process_names) and process_names[i] else f'Process {i+1}'
+            proc_name = process_names[i] if i < len(process_names) and process_names[i] and process_names[i].strip() else ''
+            
+            # Skip rows with no process name or no data
+            if not proc_name and len(mem_valid) == 0 and len(cpu_valid) == 0:
+                continue  # Skip empty rows
             
             ws[f'A{row}'] = f"Process {i+1}"
-            ws[f'B{row}'] = proc_name
+            ws[f'B{row}'] = proc_name if proc_name else f'Process {i+1} (no name)'
             
             if len(mem_valid) > 0:
                 ws[f'C{row}'] = f"{sum(mem_valid) / len(mem_valid):.2f}"

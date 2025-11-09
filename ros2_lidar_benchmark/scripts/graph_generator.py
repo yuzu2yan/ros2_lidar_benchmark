@@ -357,12 +357,14 @@ class GraphGenerator:
             if len(x_valid) == 0:
                 continue
             
-            # Get process name if available
+            # Get process name if available (may include PID)
             process_names = self.viz_data.get('top_processes_names', [])
-            if i < len(process_names) and process_names[i]:
-                label = f'{process_names[i]} (P{i+1})'
+            if i < len(process_names) and process_names[i] and process_names[i].strip():
+                # Process name may already include PID (e.g., "python3 (PID:1234)")
+                label = process_names[i]
             else:
-                label = f'Process {i+1}'
+                # Skip processes without names (they won't be plotted)
+                continue
             
             # Plot with label
             plt.plot(x_valid, y_valid, 
