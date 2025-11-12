@@ -2,6 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
+from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 from std_msgs.msg import Float64MultiArray, Empty
 from diagnostic_msgs.msg import DiagnosticArray
 import json
@@ -20,8 +21,16 @@ class LongTermDataRecorder(Node):
 
         # Parameters
         self.declare_parameter('output_dir', '/tmp/lidar_benchmark_longterm')
-        self.declare_parameter('duration_days', 14.0)
-        self.declare_parameter('checkpoint_interval_days', 1.0)
+        self.declare_parameter(
+            'duration_days', 
+            14.0,
+            ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE)
+        )
+        self.declare_parameter(
+            'checkpoint_interval_days', 
+            1.0,
+            ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE)
+        )
         # Optional seconds-based overrides (for tests)
         self.declare_parameter('duration_seconds', 0)
         self.declare_parameter('checkpoint_interval_seconds', 0)
