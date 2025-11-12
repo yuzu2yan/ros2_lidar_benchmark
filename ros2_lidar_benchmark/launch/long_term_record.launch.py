@@ -112,7 +112,7 @@ def generate_launch_description():
         duration_days = float(duration_days_str)
         checkpoint_interval_days = float(checkpoint_interval_days_str)
         
-        return Node(
+        return [Node(
             package='ros2_lidar_benchmark',
             executable='long_term_data_recorder.py',
             name='long_term_data_recorder',
@@ -124,7 +124,7 @@ def generate_launch_description():
                 'max_points': 0
             }],
             output='screen'
-        )
+        )]
 
     long_term_recorder_node = OpaqueFunction(function=create_long_term_recorder_node)
 
