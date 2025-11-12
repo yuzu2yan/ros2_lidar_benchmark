@@ -1,6 +1,6 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 import os
@@ -103,19 +103,30 @@ def generate_launch_description():
         output='screen'
     )
 
-    long_term_recorder_node = Node(
-        package='ros2_lidar_benchmark',
-        executable='long_term_data_recorder.py',
-        name='long_term_data_recorder',
-        parameters=[{
-            'output_dir': LaunchConfiguration('output_dir'),
-            'duration_days': LaunchConfiguration('duration_days'),
-            'checkpoint_interval_days': LaunchConfiguration('checkpoint_interval_days'),
-            'save_tick_seconds': 30.0,
-            'max_points': 0
-        }],
-        output='screen'
-    )
+    def create_long_term_recorder_node(context):
+        duration_days_str = context.launch_configurations.get('duration_days', '15')
+        checkpoint_interval_days_str = context.launch_configurations.get('checkpoint_interval_days', '0.5')
+        output_dir_str = context.launch_configurations.get('output_dir', '/tmp/lidar_benchmark_longterm')
+        
+        # Convert strings to floats
+        duration_days = float(duration_days_str)
+        checkpoint_interval_days = float(checkpoint_interval_days_str)
+        
+        return Node(
+            package='ros2_lidar_benchmark',
+            executable='long_term_data_recorder.py',
+            name='long_term_data_recorder',
+            parameters=[{
+                'output_dir': output_dir_str,
+                'duration_days': duration_days,
+                'checkpoint_interval_days': checkpoint_interval_days,
+                'save_tick_seconds': 30.0,
+                'max_points': 0
+            }],
+            output='screen'
+        )
+
+    long_term_recorder_node = OpaqueFunction(function=create_long_term_recorder_node)
 
     return LaunchDescription([
         config_file_arg,
