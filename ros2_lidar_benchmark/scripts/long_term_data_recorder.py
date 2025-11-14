@@ -419,18 +419,20 @@ class LongTermDataRecorder(Node):
         }
         return report
 
-    def save_checkpoint(self, day_index: int, final: bool = False):
+    def save_checkpoint(self, elapsed_days: float, final: bool = False):
         """Save cumulative snapshot outputs: Excel and graphs with unique names (no overwrite)."""
         with self.data_lock:
             if len(self.data['timestamps']) == 0:
                 return
 
-            # Always use day folders, even for final checkpoint
-            tag = f'day{day_index:02d}'
+            # Use actual elapsed days for folder naming
+            # Format: Day0.5, Day1.0, Day1.5, etc.
+            day_folder_name = f'Day{elapsed_days:.1f}'
+            tag = f'day{elapsed_days:.1f}'
             ts = datetime.now(timezone.utc).astimezone().strftime('%Y%m%d_%H%M%S')
 
-            # Create Day folders for all checkpoints
-            day_dir = os.path.join(self.output_dir, f'Day{day_index}')
+            # Create Day folders for all checkpoints based on actual elapsed days
+            day_dir = os.path.join(self.output_dir, day_folder_name)
             os.makedirs(day_dir, exist_ok=True)
             snapshot_dir_name = f'snapshot_{self.start_iso}_until_{ts}_{tag}'
             snapshot_dir = os.path.join(day_dir, snapshot_dir_name)
@@ -504,7 +506,7 @@ class LongTermDataRecorder(Node):
                     pass
 
                 self.get_logger().info(
-                    f'Checkpoint outputs saved ({"final" if final else f"{day_index}d"}): {snapshot_dir}'
+                    f'Checkpoint outputs saved ({"final" if final else f"{elapsed_days:.1f} days"}): {snapshot_dir}'
                 )
             except Exception as e:
                 self.get_logger().error(f'Failed to save checkpoint outputs: {e}')
@@ -516,13 +518,16 @@ class LongTermDataRecorder(Node):
         # Daily checkpoint
         if elapsed >= self.next_checkpoint_sec:
             self.checkpoint_count += 1
-            self.save_checkpoint(self.checkpoint_count, final=False)
+            # Calculate actual elapsed days for folder naming
+            elapsed_days = elapsed / (24 * 3600)
+            self.save_checkpoint(elapsed_days, final=False)
             self.next_checkpoint_sec += self.checkpoint_interval_sec
 
         # Finalization
         if elapsed >= self.total_duration_sec:
-            # Save final checkpoint (no separate final folder)
-            self.save_checkpoint(self.checkpoint_count, final=False)
+            # Save final checkpoint with actual elapsed days
+            elapsed_days = elapsed / (24 * 3600)
+            self.save_checkpoint(elapsed_days, final=False)
             self.get_logger().info('Target duration reached. Stopping long-term recorder.')
             # No need to wait - subprocess.communicate() blocks until completion
             raise SystemExit
@@ -531,7 +536,9 @@ class LongTermDataRecorder(Node):
         self.get_logger().info('Received shutdown signal. Saving final snapshot and exiting...')
         # Save final snapshot and exit
         try:
-            self.save_checkpoint(self.checkpoint_count, final=False)
+            elapsed = time.time() - self.start_walltime
+            elapsed_days = elapsed / (24 * 3600)
+            self.save_checkpoint(elapsed_days, final=False)
             # No need to wait - subprocess.communicate() blocks until completion
         finally:
             raise SystemExit

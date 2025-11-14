@@ -52,5 +52,6 @@ CATKIN_IGNORE
 
 .claude/
 .DS_Store
+.vscode/
 
 r2r*/
